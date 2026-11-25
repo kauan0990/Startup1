@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f4ef">
+    <title>First Finance | Educação financeira</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegação principal">
+        <a class="brand" href="#inicio" aria-label="First Finance, início">
+          <span class="brand-mark" aria-hidden="true">F</span>
+          <span class="brand-name">First<br>Finance</span>
+        </a>
+
+        <nav class="primary-nav" aria-label="Seções">
+          <a class="nav-link is-active" href="#aprendizagem" aria-current="page">
+            <span class="nav-icon" aria-hidden="true">01</span>
+            <span>Aprendizagem</span>
+          </a>
+          <a class="nav-link" href="#recompensas">
+            <span class="nav-icon" aria-hidden="true">02</span>
+            <span>Recompensas</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-note">
+          <span class="sidebar-note-mark" aria-hidden="true"></span>
+          <p>Seu próximo passo<br>vale a pena.</p>
+        </div>
+      </aside>
+
+      <main id="inicio" class="main-content">
+        <header class="topbar">
+          <div class="student-context">
+            <span class="context-label">ESPAÇO DO ALUNO</span>
+            <span class="context-level">5º ano · Fundamental I</span>
+          </div>
+          <div class="topbar-actions">
+            <button id="view-switch" class="view-switch" type="button" aria-controls="guardian-view" aria-expanded="false">Visão dos responsáveis</button>
+            <div class="student-profile" aria-label="Aluna Sofia">
+              <span class="student-avatar" aria-hidden="true">S</span>
+              <span class="student-name">Sofia</span>
+            </div>
+          </div>
+        </header>
+
+        <div id="student-view">
+          <section class="welcome-section" aria-labelledby="welcome-title">
+          <div class="welcome-copy">
+            <p class="eyebrow">UM PASSO DE CADA VEZ</p>
+            <h1 id="welcome-title">Olá, Sofia<span class="welcome-period">.</span></h1>
+            <p class="welcome-description">Pequenas escolhas de hoje. Grandes planos para amanhã.</p>
+          </div>
+          <div class="welcome-stamp" aria-hidden="true">
+            <span>APRENDER</span>
+            <span class="stamp-star">✳</span>
+            <span>PARA CRESCER</span>
+          </div>
+          </section>
+
+        <section id="aprendizagem" class="learning-section" aria-labelledby="learning-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">SUA JORNADA</p>
+              <h2 id="learning-title">Trilhas para explorar</h2>
+            </div>
+            <p class="section-aside">Conteúdo do seu nível escolar</p>
+          </div>
+
+          <div id="learning-content" class="learning-content" aria-live="polite">
+            <p class="loading-message">Preparando suas trilhas...</p>
+          </div>
+        </section>
+
+        <section id="recompensas" class="rewards-section" aria-labelledby="rewards-title">
+          <div class="section-heading rewards-heading">
+            <div>
+              <p class="eyebrow">SEU ESFORÇO TEM VALOR</p>
+              <h2 id="rewards-title">Mesada de aprendizagem</h2>
+            </div>
+            <span class="demo-label">DEMONSTRAÇÃO</span>
+          </div>
+
+          <div id="reward-content" class="reward-content" aria-live="polite">
+            <p class="loading-message">Carregando seu saldo...</p>
+          </div>
+        </section>
+
+          <footer class="page-footer">
+            <p>Uma demonstração de educação financeira para aprender fazendo.</p>
+            <button id="reset-demo" class="reset-button" type="button">Reiniciar demonstração</button>
+          </footer>
+        </div>
+
+        <section id="guardian-view" class="guardian-view" aria-labelledby="guardian-title" hidden>
+          <div class="section-heading guardian-heading">
+            <div>
+              <p class="eyebrow">ÁREA DO RESPONSÁVEL</p>
+              <h1 id="guardian-title">Visão dos responsáveis</h1>
+            </div>
+            <p class="section-aside">Acompanhamento de <span class="guardian-student-name">Sofia</span></p>
+          </div>
+          <div id="guardian-metrics" class="guardian-metrics"></div>
+          <section class="guardian-progress" aria-labelledby="guardian-progress-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">APRENDIZAGEM</p>
+                <h2 id="guardian-progress-title">Progresso do aluno</h2>
+              </div>
+            </div>
+            <div id="guardian-learning-progress" class="guardian-learning-progress"></div>
+          </section>
+          <section class="guardian-finances" aria-labelledby="guardian-finances-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">MOVIMENTAÇÕES</p>
+                <h2 id="guardian-finances-title">Gestão financeira</h2>
+              </div>
+            </div>
+            <div id="guardian-financial-controls" class="guardian-financial-controls">
+              <form id="deposit-form" class="finance-form">
+                <p class="eyebrow">ADICIONAR RECURSOS</p>
+                <label for="deposit-amount">Valor do depósito</label>
+                <div class="finance-input-row">
+                  <span class="finance-prefix" aria-hidden="true">R$</span>
+                  <input id="deposit-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
+                  <button class="finance-submit" type="submit">Depositar</button>
+                </div>
+              </form>
+              <form id="withdrawal-form" class="finance-form">
+                <p class="eyebrow">SALDO NÃO COMPROMETIDO</p>
+                <label for="withdrawal-amount">Valor da retirada</label>
+                <div class="finance-input-row">
+                  <span class="finance-prefix" aria-hidden="true">R$</span>
+                  <input id="withdrawal-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
+                  <button class="finance-submit" type="submit">Retirar</button>
+                </div>
+                <p class="finance-available">Disponível para retirada: <strong id="withdrawal-available">R$ 0,00</strong></p>
+              </form>
+            </div>
+            <p id="guardian-operation-feedback" class="reward-notice" role="status" aria-live="polite"></p>
+            <div id="guardian-history" class="guardian-history"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-dialog-title">
+      <form id="operation-dialog-form">
+        <p class="eyebrow">CONFIRMAÇÃO</p>
+        <h2 id="operation-dialog-title">Confirmar operação</h2>
+        <p id="operation-dialog-message" class="operation-dialog-message"></p>
+        <div class="operation-dialog-actions">
+          <button id="operation-cancel" class="dialog-cancel" type="button">Cancelar</button>
+          <button id="operation-confirm" class="finance-submit" type="submit">Confirmar</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
