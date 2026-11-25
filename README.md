@@ -1,34 +1,42 @@
 # First Finance
 
-Educação financeira para crianças e adolescentes, aprendendo na prática.
+A criança aprende educação financeira com aulas curtas, ganha a mesada aula a aula e a família acompanha tudo.
 
 **Site:** https://kauan0990.github.io/Startup1/
 
-## O que tem no MVP
+## Como funciona (demonstração com a aluna Sofia, 5º ano)
 
-- **Trilhas por série:** Fundamental I, Fundamental II e Ensino Médio, cada uma com 6 módulos.
-- **Aula + desafio:** cada módulo tem uma mini-lição, uma dica do mascote e uma pergunta. Acertou, libera a recompensa.
-- **XP e níveis:** 100 XP por módulo e +50 XP se acertar de primeira. Os níveis vão de Semente até Floresta.
-- **Conquistas:** 7 medalhas para desbloquear.
-- **Cofrinho de metas:** a criança cria uma meta e guarda as recompensas nela até conquistar.
-- **Visão dos responsáveis:** progresso, depósitos, retiradas e histórico.
-- **3 perfis de demonstração:** Sofia (5º ano, tema infantil), Lucas (8º ano) e Bia (2º EM), esses dois com o tema teen escuro.
+**Sofia**
+- Trilha de 6 aulas em duas partes: "Meu dinheiro" e "Escolhas e objetivos".
+- Cada aula tem uma leitura curta e um desafio. Ao acertar, ela libera R$ 20,00 da mesada de R$ 120,00.
+- Ela pode pedir o dinheiro liberado para a família ou guardar numa meta (ex.: patins, R$ 100,00).
+- Selos marcam conquistas: primeira aula, acertos de primeira, meta conquistada etc.
 
-Tudo é demonstrativo e fica salvo no navegador (localStorage). Nenhum valor real é movimentado.
+**Família**
+- Resumo: mesada depositada, liberado pelas aulas, guardado na meta, já recebido e saldo livre.
+- Pedidos da Sofia: aprovar ou recusar (o aviso aparece na aba Família).
+- Aulas: situação, data de conclusão e tentativas em cada desafio.
+- Meta: acompanhar e ajudar colocando dinheiro direto nela.
+- Mesada: depositar e retirar do saldo livre, sempre com confirmação.
+- Extrato com filtro de entradas e saídas.
 
-## Identidade visual
+Tudo fica salvo no navegador (localStorage). Nenhum dinheiro de verdade é movimentado.
 
-| Item | Definição |
+## Identidade visual: "caderno quadriculado"
+
+| | |
 |---|---|
-| Mascote | **Cofi**: uma moedinha com um broto, o dinheiro que cresce |
-| Cor da marca | Uva `#3D2A8C` |
-| Cores de apoio | Moeda `#FFC83D` · Coral `#FF7A59` · Céu `#6FD3FF` · Limão `#C8F169` · Folha `#3E9B4F` |
-| Fundo | Creme `#FFF8EC` (infantil) / Noite `#120D2B` (teen) |
-| Tipografia | **Baloo 2** (títulos) + **Nunito** (texto), via Google Fonts |
+| Tinta (marca) | `#1B3FA0` |
+| Noite (texto) | `#0E1B3D` |
+| Papel / Grade | `#F7FAFE` / `#DDE7F7` |
+| Céu | `#C9DBFF` |
+| Marca-texto (destaque) | `#FFE14D` |
+| Títulos e números | Gabarito |
+| Texto | Atkinson Hyperlegible |
 
 ## Arquivos
 
-- `index.html`: estrutura da página e o mascote em SVG
-- `styles.css`: identidade visual e os temas
-- `content.js`: trilhas, aulas, perguntas e perfis (edite aqui para mudar o conteúdo)
-- `app.js`: lógica de saldos, gamificação e cofrinho
+- `index.html`: estrutura das duas visões
+- `styles.css`: identidade visual
+- `content.js`: aluna, aulas e perguntas (edite aqui para mudar o conteúdo)
+- `app.js`: regras da mesada, meta, pedidos e extrato

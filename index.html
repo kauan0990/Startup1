@@ -3,221 +3,173 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#3D2A8C">
-    <meta name="description" content="First Finance: educação financeira para crianças e adolescentes, aprendendo na prática com trilhas, desafios e um cofrinho de metas.">
-    <title>First Finance | Educação financeira para crianças e adolescentes</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpath d='M60 26 V10' stroke='%233E9B4F' stroke-width='5' stroke-linecap='round'/%3E%3Cellipse cx='48' cy='14' rx='12' ry='7' fill='%238BD450' transform='rotate(-25 48 14)'/%3E%3Cellipse cx='72' cy='12' rx='12' ry='7' fill='%23C8F169' transform='rotate(25 72 12)'/%3E%3Ccircle cx='60' cy='68' r='44' fill='%23FFC83D' stroke='%23E8A417' stroke-width='5'/%3E%3Cellipse cx='46' cy='64' rx='5' ry='7' fill='%231E1640'/%3E%3Cellipse cx='74' cy='64' rx='5' ry='7' fill='%231E1640'/%3E%3Cpath d='M48 80 Q60 92 72 80' stroke='%231E1640' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+    <meta name="theme-color" content="#1B3FA0">
+    <meta name="description" content="First Finance: a criança aprende educação financeira com aulas curtas, ganha a mesada aula a aula e a família acompanha tudo.">
+    <title>First Finance</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231B3FA0'/%3E%3Cpath d='M8 23h5v-5h5v-5h6' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='9' r='2.6' fill='%23FFE14D'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=2">
-    <script src="content.js?v=2" defer></script>
-    <script src="app.js?v=2" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Gabarito:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=4">
+    <script src="content.js?v=4" defer></script>
+    <script src="app.js?v=4" defer></script>
   </head>
-  <body data-theme="kids">
-    <!-- Mascote Cofi: moedinha com um broto, símbolo de dinheiro que cresce -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-      <defs>
-        <symbol id="cofi" viewBox="0 0 120 120">
-          <path d="M60 28 V11" stroke="#3E9B4F" stroke-width="5" stroke-linecap="round"/>
-          <ellipse cx="47" cy="15" rx="13" ry="7.5" fill="#8BD450" transform="rotate(-25 47 15)"/>
-          <ellipse cx="73" cy="13" rx="13" ry="7.5" fill="#C8F169" transform="rotate(25 73 13)"/>
-          <circle cx="60" cy="70" r="44" fill="#FFC83D" stroke="#E8A417" stroke-width="5"/>
-          <circle cx="60" cy="70" r="33" fill="none" stroke="#FFE08A" stroke-width="3" stroke-dasharray="6 7"/>
-          <ellipse cx="46" cy="66" rx="5.5" ry="7.5" fill="#1E1640"/>
-          <ellipse cx="74" cy="66" rx="5.5" ry="7.5" fill="#1E1640"/>
-          <circle cx="48" cy="63" r="2" fill="#fff"/>
-          <circle cx="76" cy="63" r="2" fill="#fff"/>
-          <ellipse cx="36" cy="80" rx="7" ry="4.5" fill="#FF7A59" opacity=".55"/>
-          <ellipse cx="84" cy="80" rx="7" ry="4.5" fill="#FF7A59" opacity=".55"/>
-          <path d="M49 82 Q60 93 71 82" stroke="#1E1640" stroke-width="5" fill="none" stroke-linecap="round"/>
-        </symbol>
-      </defs>
-    </svg>
-
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Navegação principal">
-        <a class="brand" href="#inicio" aria-label="First Finance, início">
-          <svg class="brand-mark" aria-hidden="true"><use href="#cofi"/></svg>
-          <span class="brand-name">First<strong>Finance</strong></span>
-        </a>
-
-        <nav class="primary-nav" aria-label="Seções">
-          <a class="nav-link is-active" href="#aprendizagem" aria-current="page">
-            <span class="nav-icon" aria-hidden="true">🗺️</span>
-            <span>Trilhas</span>
-          </a>
-          <a class="nav-link" href="#conquistas">
-            <span class="nav-icon" aria-hidden="true">🏅</span>
-            <span>Conquistas</span>
-          </a>
-          <a class="nav-link" href="#recompensas">
-            <span class="nav-icon" aria-hidden="true">🐷</span>
-            <span>Cofrinho</span>
-          </a>
-        </nav>
-
-        <div class="sidebar-card">
-          <span class="sidebar-card-label">Seu nível</span>
-          <strong id="sidebar-rank" class="sidebar-rank">Semente</strong>
-          <div class="xp-bar small" aria-hidden="true"><div id="sidebar-xp-fill" class="xp-fill"></div></div>
-          <span id="sidebar-xp" class="sidebar-xp">0 XP</span>
-        </div>
-      </aside>
-
-      <main id="inicio" class="main-content">
-        <header class="topbar">
-          <div class="student-context">
-            <span class="context-label">ESPAÇO DO ALUNO</span>
-            <span class="context-level">5º ano · Fundamental I</span>
-          </div>
-          <div class="topbar-actions">
-            <span id="xp-pill" class="xp-pill" title="Pontos de experiência">⚡ <strong>0</strong> XP</span>
-            <button id="view-switch" class="view-switch" type="button" aria-controls="guardian-view" aria-expanded="false">Visão dos responsáveis</button>
-            <label class="student-profile">
-              <span class="student-avatar" aria-hidden="true">S</span>
-              <span class="visually-hidden">Trocar perfil de demonstração</span>
-              <select id="student-select" class="student-select"></select>
-            </label>
-          </div>
-        </header>
-
-        <div id="student-view">
-          <section class="hero" aria-labelledby="welcome-title">
-            <div class="hero-copy">
-              <p class="eyebrow">UM PASSO DE CADA VEZ</p>
-              <h1 id="welcome-title">Olá, <span class="hero-name">Sofia</span>!</h1>
-              <p class="hero-description">Pequenas escolhas de hoje. Grandes planos para amanhã.</p>
-              <div class="hero-rank">
-                <span id="rank-badge" class="rank-badge">🌱 Semente</span>
-                <div class="xp-block">
-                  <div class="xp-bar" role="progressbar" aria-label="Progresso de XP até o próximo nível" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="hero-xp-fill" class="xp-fill"></div></div>
-                  <span id="xp-next" class="xp-next">Faltam 150 XP para Broto</span>
-                </div>
-              </div>
-            </div>
-            <div class="hero-mascot">
-              <p id="mascot-bubble" class="speech-bubble">Oi! Eu sou o Cofi. Vamos fazer seu dinheiro crescer?</p>
-              <svg class="mascot" aria-hidden="true"><use href="#cofi"/></svg>
-            </div>
-          </section>
-
-          <section id="aprendizagem" class="learning-section" aria-labelledby="learning-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">SUA JORNADA</p>
-                <h2 id="learning-title">Trilhas para explorar</h2>
-              </div>
-              <p class="section-aside">Leia, responda o desafio e ganhe recompensa + XP</p>
-            </div>
-            <div id="learning-content" class="learning-content" aria-live="polite">
-              <p class="loading-message">Preparando suas trilhas...</p>
-            </div>
-          </section>
-
-          <section id="conquistas" class="badges-section" aria-labelledby="badges-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">COLEÇÃO</p>
-                <h2 id="badges-title">Suas conquistas</h2>
-              </div>
-              <p id="badges-count" class="section-aside">0 de 7 desbloqueadas</p>
-            </div>
-            <div id="badges-content" class="badge-grid"></div>
-          </section>
-
-          <section id="recompensas" class="rewards-section" aria-labelledby="rewards-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">SEU ESFORÇO TEM VALOR</p>
-                <h2 id="rewards-title">Cofrinho e mesada</h2>
-              </div>
-              <span class="demo-label">DEMONSTRAÇÃO</span>
-            </div>
-            <div id="reward-content" class="reward-content" aria-live="polite">
-              <p class="loading-message">Carregando seu saldo...</p>
-            </div>
-          </section>
-
-          <footer class="page-footer">
-            <p>Uma demonstração de educação financeira para aprender fazendo. Nenhum valor real é movimentado.</p>
-            <button id="reset-demo" class="reset-button" type="button">Reiniciar demonstração</button>
-          </footer>
-        </div>
-
-        <section id="guardian-view" class="guardian-view" aria-labelledby="guardian-title" hidden>
-          <div class="section-heading guardian-heading">
-            <div>
-              <p class="eyebrow">ÁREA DO RESPONSÁVEL</p>
-              <h1 id="guardian-title">Visão dos responsáveis</h1>
-            </div>
-            <p class="section-aside">Acompanhamento de <span class="guardian-student-name">Sofia</span></p>
-          </div>
-          <div id="guardian-metrics" class="guardian-metrics"></div>
-          <section class="guardian-progress" aria-labelledby="guardian-progress-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">APRENDIZAGEM</p>
-                <h2 id="guardian-progress-title">Progresso do aluno</h2>
-              </div>
-            </div>
-            <div id="guardian-learning-progress" class="guardian-learning-progress"></div>
-          </section>
-          <section class="guardian-finances" aria-labelledby="guardian-finances-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">MOVIMENTAÇÕES</p>
-                <h2 id="guardian-finances-title">Gestão financeira</h2>
-              </div>
-            </div>
-            <div id="guardian-financial-controls" class="guardian-financial-controls">
-              <form id="deposit-form" class="finance-form">
-                <p class="eyebrow">ADICIONAR RECURSOS</p>
-                <label for="deposit-amount">Valor do depósito</label>
-                <div class="finance-input-row">
-                  <span class="finance-prefix" aria-hidden="true">R$</span>
-                  <input id="deposit-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
-                  <button class="finance-submit" type="submit">Depositar</button>
-                </div>
-              </form>
-              <form id="withdrawal-form" class="finance-form">
-                <p class="eyebrow">SALDO NÃO COMPROMETIDO</p>
-                <label for="withdrawal-amount">Valor da retirada</label>
-                <div class="finance-input-row">
-                  <span class="finance-prefix" aria-hidden="true">R$</span>
-                  <input id="withdrawal-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
-                  <button class="finance-submit" type="submit">Retirar</button>
-                </div>
-                <p class="finance-available">Disponível para retirada: <strong id="withdrawal-available">R$ 0,00</strong></p>
-              </form>
-            </div>
-            <p id="guardian-operation-feedback" class="reward-notice" role="status" aria-live="polite"></p>
-            <div id="guardian-history" class="guardian-history"></div>
-          </section>
-        </section>
-      </main>
-    </div>
-
-    <dialog id="lesson-dialog" class="lesson-dialog" aria-labelledby="lesson-title">
-      <div class="lesson-inner">
-        <button id="lesson-close" class="dialog-close" type="button" aria-label="Fechar">✕</button>
-        <div id="lesson-body"></div>
+  <body>
+    <header class="appbar">
+      <a class="brand" href="#" aria-label="First Finance, início">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="currentColor"/>
+          <path d="M8 23h5v-5h5v-5h6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="9" r="2.6" fill="#FFE14D"/>
+        </svg>
+        <span class="brand-name">first finance</span>
+      </a>
+      <div class="view-toggle" role="tablist" aria-label="Escolher visão">
+        <button id="tab-student" role="tab" aria-selected="true" aria-controls="student-view" type="button">
+          <span class="avatar" aria-hidden="true">S</span><span class="tab-label">Sofia</span>
+        </button>
+        <button id="tab-family" role="tab" aria-selected="false" aria-controls="family-view" type="button">
+          <span class="tab-label">Família</span><span id="family-badge" class="count-badge" hidden></span>
+        </button>
       </div>
+    </header>
+
+    <!-- ===================== VISÃO DA CRIANÇA ===================== -->
+    <main id="student-view" class="page" role="tabpanel" aria-labelledby="tab-student">
+      <section class="intro">
+        <div class="intro-copy">
+          <h1 id="greeting">Oi, Sofia.</h1>
+          <p id="intro-line" class="intro-line"></p>
+        </div>
+        <button id="continue-button" class="button button-primary button-large" type="button"></button>
+      </section>
+
+      <section class="trail-section" aria-labelledby="trail-title">
+        <div class="section-head">
+          <h2 id="trail-title">Sua trilha</h2>
+          <p id="trail-count" class="section-note"></p>
+        </div>
+        <div class="trail-wrap">
+          <svg id="trail-line" class="trail-line" aria-hidden="true"></svg>
+          <ol id="trail" class="trail"></ol>
+        </div>
+      </section>
+
+      <section class="money" aria-labelledby="money-title">
+        <h2 id="money-title" class="visually-hidden">Seu dinheiro</h2>
+        <div id="wallet" class="wallet"></div>
+        <div id="goal" class="goal"></div>
+      </section>
+
+      <section class="stamps-section" aria-labelledby="stamps-title">
+        <div class="section-head">
+          <h2 id="stamps-title">Selos</h2>
+          <p id="stamps-count" class="section-note"></p>
+        </div>
+        <ul id="stamps" class="stamps"></ul>
+      </section>
+
+      <footer class="page-foot">
+        <p>Demonstração. Nenhum dinheiro de verdade é movimentado.</p>
+        <button id="reset-demo" class="button button-ghost" type="button">Recomeçar demonstração</button>
+      </footer>
+    </main>
+
+    <!-- ===================== VISÃO DA FAMÍLIA ===================== -->
+    <main id="family-view" class="page page-family" role="tabpanel" aria-labelledby="tab-family" hidden>
+      <section class="family-head">
+        <div>
+          <h1>Acompanhamento da Sofia</h1>
+          <p class="family-sub">5º ano, 10 anos. Cada aula concluída libera R$ 20,00 da mesada de R$ 120,00.</p>
+        </div>
+      </section>
+
+      <dl id="family-summary" class="summary"></dl>
+
+      <section id="requests" class="block block-requests" aria-labelledby="requests-title"></section>
+
+      <div class="family-grid">
+        <section class="block" aria-labelledby="learning-title">
+          <div class="block-head">
+            <h2 id="learning-title">Aulas</h2>
+            <p id="learning-note" class="section-note"></p>
+          </div>
+          <div class="table-scroll">
+            <table class="lessons-table">
+              <thead>
+                <tr><th scope="col">Aula</th><th scope="col">Situação</th><th scope="col">Tentativas no desafio</th><th scope="col">Recompensa</th></tr>
+              </thead>
+              <tbody id="lessons-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="block" aria-labelledby="family-goal-title">
+          <div class="block-head">
+            <h2 id="family-goal-title">Meta da Sofia</h2>
+          </div>
+          <div id="family-goal"></div>
+        </section>
+      </div>
+
+      <section class="block" aria-labelledby="money-ops-title">
+        <div class="block-head">
+          <h2 id="money-ops-title">Mesada</h2>
+          <p class="section-note">Depósitos extras ficam como saldo livre e podem ser retirados quando quiser. O valor das aulas fica reservado até a Sofia concluir.</p>
+        </div>
+        <div class="ops">
+          <form id="deposit-form" class="op-form">
+            <label for="deposit-amount">Depositar</label>
+            <div class="money-input">
+              <span aria-hidden="true">R$</span>
+              <input id="deposit-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required>
+            </div>
+            <button class="button button-primary" type="submit">Depositar</button>
+          </form>
+          <form id="withdrawal-form" class="op-form">
+            <label for="withdrawal-amount">Retirar do saldo livre</label>
+            <div class="money-input">
+              <span aria-hidden="true">R$</span>
+              <input id="withdrawal-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required>
+            </div>
+            <button class="button button-secondary" type="submit">Retirar</button>
+            <p class="op-help">Saldo livre: <strong id="free-balance">R$ 0,00</strong></p>
+          </form>
+        </div>
+        <p id="ops-feedback" class="feedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="block" aria-labelledby="history-title">
+        <div class="block-head">
+          <h2 id="history-title">Extrato</h2>
+          <div class="filters" role="group" aria-label="Filtrar extrato">
+            <button type="button" class="filter is-on" data-filter="all" aria-pressed="true">Tudo</button>
+            <button type="button" class="filter" data-filter="in" aria-pressed="false">Entradas</button>
+            <button type="button" class="filter" data-filter="out" aria-pressed="false">Saídas</button>
+          </div>
+        </div>
+        <ol id="history" class="history"></ol>
+      </section>
+    </main>
+
+    <dialog id="lesson-dialog" class="sheet" aria-labelledby="lesson-title">
+      <button id="lesson-close" class="sheet-close" type="button" aria-label="Fechar aula">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div id="lesson-body"></div>
     </dialog>
 
-    <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-dialog-title">
-      <form id="operation-dialog-form">
-        <p class="eyebrow">CONFIRMAÇÃO</p>
-        <h2 id="operation-dialog-title">Confirmar operação</h2>
-        <p id="operation-dialog-message" class="operation-dialog-message"></p>
-        <div class="operation-dialog-actions">
-          <button id="operation-cancel" class="dialog-cancel" type="button">Cancelar</button>
-          <button id="operation-confirm" class="finance-submit" type="submit">Confirmar</button>
+    <dialog id="confirm-dialog" class="sheet sheet-small" aria-labelledby="confirm-title">
+      <form id="confirm-form" method="dialog">
+        <h2 id="confirm-title"></h2>
+        <p id="confirm-message"></p>
+        <div class="sheet-actions">
+          <button value="cancel" class="button button-ghost" type="submit">Cancelar</button>
+          <button id="confirm-ok" value="ok" class="button button-primary" type="submit"></button>
         </div>
       </form>
     </dialog>
 
-    <div id="toast-region" class="toast-region" aria-live="polite"></div>
-    <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>

@@ -1,992 +1,764 @@
-// First Finance · MVP v2
-// Depende de content.js (learningLevels, demoStudents).
+// First Finance · MVP v3 (um aluno + família)
+// Depende de content.js: student, tracks, modules.
 
 const INITIAL_DEPOSIT_CENTS = 12000;
-const DEMO_STATE_VERSION = 2;
-const STORAGE_PREFIX = "first-finance-v2:";
-const STUDENT_KEY = "first-finance-v2:student";
+const STATE_VERSION = 3;
+const STORAGE_KEY = "first-finance-v3";
 const OPENING_DEPOSIT_ID = "opening-deposit";
-const REWARD_MOVEMENT_PREFIX = "reward-earned:";
-const XP_PER_MODULE = 100;
-const XP_PERFECT_BONUS = 50;
-
-const ranks = [
-  { min: 0, name: "Semente", icon: "🌱" },
-  { min: 150, name: "Broto", icon: "🌿" },
-  { min: 350, name: "Muda", icon: "🪴" },
-  { min: 600, name: "Árvore", icon: "🌳" },
-  { min: 850, name: "Floresta", icon: "🏞️" }
-];
-
-const goalEmojis = ["🚲", "🎮", "📚", "🎧", "⚽", "🎨", "✈️", "🎁"];
-
-const mascotTips = [
-  "Oi! Eu sou o Cofi. Vamos fazer seu dinheiro crescer?",
-  "Guarde primeiro, gaste depois. Esse é o meu segredo!",
-  "Cada módulo concluído vira recompensa no seu cofrinho.",
-  "Que tal criar uma meta? Ver a barra enchendo é muito bom!",
-  "Acertar o desafio de primeira vale XP bônus. ⚡"
-];
-
-let student = null;
-let demoState;
-let pendingFinancialOperation = null;
-let activeLesson = null;
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const money = (cents) => currency.format(cents / 100);
-const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const fullDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (selector) => document.querySelector(selector);
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ---------- Armazenamento seguro ---------- */
+let state;
+let lesson = null;
+let pendingConfirm = null;
+let historyFilter = "all";
 
-const storage = {
-  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
-  set(key, value) { localStorage.setItem(key, value); },
-  trySet(key, value) { try { localStorage.setItem(key, value); } catch { /* sem armazenamento */ } }
-};
+/* ------------------------------------------------------------------
+   Estado e regras da conta
+   ------------------------------------------------------------------ */
 
-/* ---------- Estado ---------- */
-
-function createInitialDemoState() {
+function initialState() {
   return {
-    version: DEMO_STATE_VERSION,
+    version: STATE_VERSION,
     completedModuleIds: [],
-    perfectModuleIds: [],
+    firstTryIds: [],
+    attempts: {},
     goal: null,
     goalsAchieved: 0,
+    requests: [],
     movements: [{
       id: OPENING_DEPOSIT_ID,
       type: "deposit",
       amountCents: INITIAL_DEPOSIT_CENTS,
       date: new Date().toISOString(),
-      description: "Depósito inicial da demonstração"
+      description: "Mesada da trilha"
     }]
   };
 }
 
-function getActiveLevel() {
-  return learningLevels.find((level) => level.id === student.levelId);
-}
+const sum = (s, test) => s.movements.filter(test).reduce((total, m) => total + m.amountCents, 0);
+const rewardBudget = () => modules.reduce((total, m) => total + m.rewardCents, 0);
 
-function getActiveModules() {
-  return getActiveLevel().tracks.flatMap((track) => track.modules);
-}
+function balances(s = state) {
+  const deposits = sum(s, (m) => m.type === "deposit");
+  const withdrawals = sum(s, (m) => m.type === "withdrawal");
+  const contributions = sum(s, (m) => m.type === "goal-contribution");
+  const earned = sum(s, (m) => m.type === "reward-earned");
+  const redeemedAvailable = sum(s, (m) => m.type === "redemption" && m.source === "available");
+  const redeemedGoal = sum(s, (m) => m.type === "redemption" && m.source === "goal");
+  const goalSaved = sum(s, (m) => m.type === "goal-save");
+  const done = new Set(s.completedModuleIds);
+  const incomplete = modules.filter((m) => !done.has(m.id)).reduce((total, m) => total + m.rewardCents, 0);
+  const pending = s.requests.filter((r) => r.status === "pending").reduce((total, r) => total + r.amountCents, 0);
 
-function getRewardTotal(level) {
-  return level.tracks.flatMap((track) => track.modules).reduce((total, module) => total + module.rewardCents, 0);
-}
-
-function sumMovements(state, predicate) {
-  return state.movements.filter(predicate).reduce((total, movement) => total + movement.amountCents, 0);
-}
-
-function getAccountBalances(state = demoState, level = getActiveLevel()) {
-  const modules = level.tracks.flatMap((track) => track.modules);
-  const completedIds = new Set(state.completedModuleIds);
-  const grossDepositsCents = sumMovements(state, (m) => m.type === "deposit");
-  const withdrawalsCents = sumMovements(state, (m) => m.type === "withdrawal");
-  const rewardBudgetCents = getRewardTotal(level);
-  const earnedCents = sumMovements(state, (m) => m.type === "reward-earned");
-  const redeemedCents = sumMovements(state, (m) => m.type === "redemption");
-  const redeemedFromGoalCents = sumMovements(state, (m) => m.type === "redemption" && m.source === "goal");
-  const goalSavedCents = sumMovements(state, (m) => m.type === "goal-save");
-  const incompleteRewardCents = modules.filter((module) => !completedIds.has(module.id)).reduce((total, module) => total + module.rewardCents, 0);
-  const netFundingCents = grossDepositsCents - withdrawalsCents;
-  const freeCents = netFundingCents - rewardBudgetCents;
-  const goalCents = goalSavedCents - redeemedFromGoalCents;
-  const availableCents = earnedCents - (redeemedCents - redeemedFromGoalCents) - goalSavedCents;
-  const lockedCents = freeCents + incompleteRewardCents;
-
-  return { grossDepositsCents, withdrawalsCents, rewardBudgetCents, freeCents, earnedCents, lockedCents, availableCents, goalCents, redeemedCents, netFundingCents };
-}
-
-function assertAccountInvariants(state = demoState) {
-  if (!state || state.version !== DEMO_STATE_VERSION || !Array.isArray(state.completedModuleIds) || !Array.isArray(state.perfectModuleIds) || !Array.isArray(state.movements) || !Number.isSafeInteger(state.goalsAchieved) || state.goalsAchieved < 0) {
-    throw new Error("O estado da demonstração possui um formato inválido.");
-  }
-
-  for (const level of learningLevels) {
-    if (getRewardTotal(level) !== INITIAL_DEPOSIT_CENTS) {
-      throw new Error(`As recompensas de ${level.name} não correspondem à mesada fictícia.`);
-    }
-  }
-
-  if (state.goal !== null && (typeof state.goal !== "object" || typeof state.goal.name !== "string" || !state.goal.name.trim() || !Number.isSafeInteger(state.goal.targetCents) || state.goal.targetCents <= 0 || !goalEmojis.includes(state.goal.emoji))) {
-    throw new Error("A meta de poupança é inválida.");
-  }
-
-  const level = getActiveLevel();
-  const moduleById = new Map(level.tracks.flatMap((track) => track.modules).map((module) => [module.id, module]));
-  const completedIds = new Set(state.completedModuleIds);
-  const movementIds = new Set();
-  const rewardedModuleIds = new Set();
-
-  if (completedIds.size !== state.completedModuleIds.length || [...completedIds].some((id) => !moduleById.has(id))) {
-    throw new Error("As conclusões dos módulos estão inconsistentes.");
-  }
-  if (new Set(state.perfectModuleIds).size !== state.perfectModuleIds.length || state.perfectModuleIds.some((id) => !completedIds.has(id))) {
-    throw new Error("Os bônus de desafio estão inconsistentes.");
-  }
-
-  const allowedTypes = ["deposit", "withdrawal", "reward-earned", "redemption", "goal-save"];
-  for (const movement of state.movements) {
-    if (!movement.id || movementIds.has(movement.id) || !allowedTypes.includes(movement.type) || !Number.isSafeInteger(movement.amountCents) || movement.amountCents <= 0 || !Number.isFinite(Date.parse(movement.date)) || typeof movement.description !== "string" || !movement.description.trim()) {
-      throw new Error("O histórico contém uma movimentação inválida ou duplicada.");
-    }
-    movementIds.add(movement.id);
-
-    if (movement.type === "redemption" && !["available", "goal"].includes(movement.source)) {
-      throw new Error("Resgate sem origem definida.");
-    }
-    if (movement.type === "reward-earned") {
-      const module = moduleById.get(movement.moduleId);
-      if (!module || movement.amountCents !== module.rewardCents || rewardedModuleIds.has(module.id) || !completedIds.has(module.id)) {
-        throw new Error("O histórico de recompensas dos módulos está inconsistente.");
-      }
-      rewardedModuleIds.add(module.id);
-    }
-  }
-
-  const openingDeposits = state.movements.filter((movement) => movement.id === OPENING_DEPOSIT_ID);
-  if (openingDeposits.length !== 1 || openingDeposits[0].type !== "deposit" || openingDeposits[0].amountCents !== INITIAL_DEPOSIT_CENTS) {
-    throw new Error("O depósito inicial da demonstração está ausente ou duplicado.");
-  }
-  if ([...completedIds].some((id) => !rewardedModuleIds.has(id))) {
-    throw new Error("Há módulos concluídos sem movimentação de recompensa.");
-  }
-
-  const b = getAccountBalances(state, level);
-  const allocated = b.lockedCents + b.availableCents + b.goalCents + b.redeemedCents;
-  if (b.freeCents < 0 || b.availableCents < 0 || b.goalCents < 0 || b.redeemedCents < 0 || allocated !== b.netFundingCents) {
-    throw new Error("Os saldos da demonstração não respeitam a invariável da conta.");
-  }
-  if (state.goal === null && b.goalCents !== 0) {
-    throw new Error("Há saldo guardado sem meta ativa.");
-  }
-}
-
-function cloneDemoState(state) {
+  const free = deposits - withdrawals - rewardBudget();
+  const available = earned - redeemedAvailable - goalSaved;
+  const goal = goalSaved + contributions - redeemedGoal;
   return {
-    version: state.version,
-    completedModuleIds: [...state.completedModuleIds],
-    perfectModuleIds: [...state.perfectModuleIds],
-    goal: state.goal ? { ...state.goal } : null,
-    goalsAchieved: state.goalsAchieved,
-    movements: state.movements.map((movement) => ({ ...movement }))
+    deposits, withdrawals, contributions, earned, free, goal, pending,
+    available,
+    spendable: available - pending,
+    locked: free + incomplete,
+    incomplete,
+    redeemed: redeemedAvailable + redeemedGoal,
+    net: deposits - withdrawals + contributions
   };
 }
 
-function storageKey() {
-  return `${STORAGE_PREFIX}${student.id}`;
-}
+function validate(s) {
+  const fail = (message) => { throw new Error(message); };
+  if (!s || s.version !== STATE_VERSION || !Array.isArray(s.completedModuleIds) || !Array.isArray(s.firstTryIds) || !Array.isArray(s.movements) || !Array.isArray(s.requests) || typeof s.attempts !== "object") fail("Formato inválido.");
+  if (rewardBudget() !== INITIAL_DEPOSIT_CENTS) fail("Recompensas não fecham com a mesada.");
 
-function persistDemoState(state) {
-  assertAccountInvariants(state);
-  storage.set(storageKey(), JSON.stringify(state));
-}
+  const ids = new Set(modules.map((m) => m.id));
+  const done = new Set(s.completedModuleIds);
+  if (done.size !== s.completedModuleIds.length || [...done].some((id) => !ids.has(id))) fail("Conclusões inconsistentes.");
+  if (s.firstTryIds.some((id) => !done.has(id))) fail("Acertos de primeira inconsistentes.");
+  if (s.goal !== null && (typeof s.goal.name !== "string" || !s.goal.name.trim() || !Number.isSafeInteger(s.goal.targetCents) || s.goal.targetCents <= 0)) fail("Meta inválida.");
 
-function loadDemoState() {
-  const initialState = createInitialDemoState();
-  try {
-    const stored = storage.get(storageKey());
-    if (stored === null) {
-      storage.trySet(storageKey(), JSON.stringify(initialState));
-      return initialState;
-    }
-    const parsed = JSON.parse(stored);
-    assertAccountInvariants(parsed);
-    return parsed;
-  } catch {
-    storage.trySet(storageKey(), JSON.stringify(initialState));
-    return initialState;
-  }
-}
-
-function commitDemoState(nextState) {
-  try {
-    persistDemoState(nextState);
-    demoState = nextState;
-    return true;
-  } catch {
-    // Sem armazenamento (ex.: navegação privada restrita): mantém em memória se o estado for válido.
-    try {
-      assertAccountInvariants(nextState);
-      demoState = nextState;
-      return true;
-    } catch {
-      return false;
+  const types = ["deposit", "withdrawal", "reward-earned", "redemption", "goal-save", "goal-contribution"];
+  const seen = new Set();
+  const rewarded = new Set();
+  for (const m of s.movements) {
+    if (!m.id || seen.has(m.id) || !types.includes(m.type) || !Number.isSafeInteger(m.amountCents) || m.amountCents <= 0 || !Number.isFinite(Date.parse(m.date)) || typeof m.description !== "string") fail("Movimentação inválida.");
+    seen.add(m.id);
+    if (m.type === "redemption" && !["available", "goal"].includes(m.source)) fail("Resgate sem origem.");
+    if (m.type === "reward-earned") {
+      const module = modules.find((item) => item.id === m.moduleId);
+      if (!module || rewarded.has(module.id) || !done.has(module.id) || m.amountCents !== module.rewardCents) fail("Recompensa inconsistente.");
+      rewarded.add(module.id);
     }
   }
-}
-
-function makeMovementId(type, state = demoState) {
-  return `${type}-${Date.now()}-${state.movements.length}`;
-}
-
-/* ---------- Gamificação ---------- */
-
-function getXp(state = demoState) {
-  return state.completedModuleIds.length * XP_PER_MODULE + state.perfectModuleIds.length * XP_PERFECT_BONUS;
-}
-
-function getRankInfo(xp) {
-  let index = 0;
-  ranks.forEach((rank, i) => { if (xp >= rank.min) index = i; });
-  const current = ranks[index];
-  const next = ranks[index + 1] || null;
-  const progress = next ? Math.round(((xp - current.min) / (next.min - current.min)) * 100) : 100;
-  return { current, next, progress };
-}
-
-function getBadges(state = demoState) {
-  const level = getActiveLevel();
-  const completed = new Set(state.completedModuleIds);
-  const anyTrackDone = level.tracks.some((track) => track.modules.every((module) => completed.has(module.id)));
-  const allModules = getActiveModules().length;
-  const saved = state.movements.some((movement) => movement.type === "goal-save");
-  return [
-    { id: "primeiro-passo", icon: "👣", name: "Primeiro passo", hint: "Conclua 1 módulo", unlocked: completed.size >= 1 },
-    { id: "curioso", icon: "🔎", name: "Mente curiosa", hint: "Conclua 3 módulos", unlocked: completed.size >= 3 },
-    { id: "trilha", icon: "🏁", name: "Trilha completa", hint: "Termine uma trilha inteira", unlocked: anyTrackDone },
-    { id: "genio", icon: "🧠", name: "Gênio do desafio", hint: "Acerte 3 desafios de primeira", unlocked: state.perfectModuleIds.length >= 3 },
-    { id: "poupador", icon: "🐷", name: "Poupador", hint: "Guarde dinheiro em uma meta", unlocked: saved },
-    { id: "sonho", icon: "🌟", name: "Sonho realizado", hint: "Complete uma meta de poupança", unlocked: state.goalsAchieved >= 1 },
-    { id: "mestre", icon: "👑", name: "Mestre das finanças", hint: "Conclua todos os módulos", unlocked: completed.size === allModules }
-  ];
-}
-
-/* ---------- Renderização: aluno ---------- */
-
-function renderHeader() {
-  const level = getActiveLevel();
-  document.body.dataset.theme = student.theme;
-  document.querySelector(".context-level").textContent = `${level.grade} · ${level.name}`;
-  document.querySelector(".hero-name").textContent = student.name;
-  document.querySelector(".student-avatar").textContent = student.name.charAt(0);
-  document.querySelector(".guardian-student-name").textContent = student.name;
-  document.querySelector(".hero-description").textContent = student.theme === "kids"
-    ? "Pequenas escolhas de hoje. Grandes planos para amanhã."
-    : "Seu dinheiro, suas regras. Aprenda a jogar esse jogo a seu favor.";
-
-  const xp = getXp();
-  const { current, next, progress } = getRankInfo(xp);
-  document.querySelector("#xp-pill strong").textContent = xp;
-  document.querySelector("#rank-badge").textContent = `${current.icon} ${current.name}`;
-  document.querySelector("#sidebar-rank").textContent = `${current.icon} ${current.name}`;
-  document.querySelector("#sidebar-xp").textContent = `${xp} XP`;
-  document.querySelector("#hero-xp-fill").style.width = `${progress}%`;
-  document.querySelector("#sidebar-xp-fill").style.width = `${progress}%`;
-  document.querySelector(".hero .xp-bar").setAttribute("aria-valuenow", String(progress));
-  document.querySelector("#xp-next").textContent = next
-    ? `Faltam ${next.min - xp} XP para ${next.icon} ${next.name}`
-    : "Nível máximo! Você é uma referência. 🎉";
-}
-
-function renderModule(module, index, track) {
-  const completed = demoState.completedModuleIds.includes(module.id);
-  const perfect = demoState.perfectModuleIds.includes(module.id);
-  return `
-    <article class="module-card${completed ? " is-complete" : ""}" data-module-id="${module.id}">
-      <div class="module-badge" aria-hidden="true">${completed ? "✓" : index + 1}</div>
-      <div class="module-copy">
-        <span class="module-number">MÓDULO ${String(index + 1).padStart(2, "0")}${perfect ? ' · <span class="perfect-tag">⚡ de primeira</span>' : ""}</span>
-        <h4>${module.name}</h4>
-        <p class="module-description">${module.description}</p>
-        <div class="module-meta">
-          <span class="chip chip-money">💰 ${money(module.rewardCents)}</span>
-          <span class="chip chip-xp">⚡ ${XP_PER_MODULE}${perfect ? ` + ${XP_PERFECT_BONUS}` : ""} XP</span>
-          <span class="chip">📖 2 min</span>
-        </div>
-      </div>
-      <div class="module-action">
-        <button class="completion-button${completed ? " is-complete" : ""}" type="button" data-open-lesson="${module.id}" data-track="${track.id}">${completed ? "Rever aula" : "Começar"}</button>
-      </div>
-    </article>
-  `;
-}
-
-function renderTrack(track) {
-  const completedCount = track.modules.filter((module) => demoState.completedModuleIds.includes(module.id)).length;
-  const percentage = Math.round((completedCount / track.modules.length) * 100);
-  return `
-    <section class="track-section track-${track.color}" aria-labelledby="track-${track.id}">
-      <div class="track-heading">
-        <span class="track-icon" aria-hidden="true">${track.icon}</span>
-        <div class="track-title">
-          <h3 id="track-${track.id}">${track.name}</h3>
-          <p class="track-description">${track.description}</p>
-        </div>
-        <p class="track-meta"><strong>${completedCount}/${track.modules.length}</strong><span>módulos</span></p>
-      </div>
-      <div class="progress-track" role="progressbar" aria-label="Progresso: ${track.name}" aria-valuemin="0" aria-valuemax="${track.modules.length}" aria-valuenow="${completedCount}">
-        <div class="progress-fill" style="width: ${percentage}%"></div>
-      </div>
-      <div class="module-list">
-        ${track.modules.map((module, index) => renderModule(module, index, track)).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderLearning() {
-  renderHeader();
-  document.querySelector("#learning-content").innerHTML = getActiveLevel().tracks.map(renderTrack).join("");
-  renderBadges();
-}
-
-function renderBadges() {
-  const badges = getBadges();
-  const unlockedCount = badges.filter((badge) => badge.unlocked).length;
-  document.querySelector("#badges-count").textContent = `${unlockedCount} de ${badges.length} desbloqueadas`;
-  document.querySelector("#badges-content").innerHTML = badges.map((badge) => `
-    <article class="badge-card${badge.unlocked ? " is-unlocked" : ""}">
-      <span class="badge-icon" aria-hidden="true">${badge.unlocked ? badge.icon : "🔒"}</span>
-      <strong>${badge.name}</strong>
-      <span class="badge-hint">${badge.unlocked ? "Desbloqueada!" : badge.hint}</span>
-    </article>
-  `).join("");
-}
-
-function renderGoalCard(b) {
-  if (!demoState.goal) {
-    return `
-      <form id="goal-form" class="goal-card goal-empty">
-        <div class="goal-empty-copy">
-          <p class="eyebrow">COFRINHO DE METAS</p>
-          <h3>Crie sua meta 🎯</h3>
-          <p>Escolha algo que você quer conquistar e guarde suas recompensas nela.</p>
-        </div>
-        <fieldset class="emoji-picker">
-          <legend>Escolha um ícone</legend>
-          ${goalEmojis.map((emoji, i) => `<label><input type="radio" name="emoji" value="${emoji}"${i === 0 ? " checked" : ""}><span>${emoji}</span></label>`).join("")}
-        </fieldset>
-        <div class="goal-fields">
-          <label>O que você quer?<input name="name" type="text" maxlength="40" placeholder="Ex.: Bicicleta nova" required></label>
-          <label>Quanto custa?<span class="finance-input-row"><span class="finance-prefix" aria-hidden="true">R$</span><input name="target" type="number" min="1" max="10000" step="0.01" inputmode="decimal" placeholder="60,00" required></span></label>
-        </div>
-        <button class="primary-button" type="submit">Criar meta</button>
-      </form>
-    `;
-  }
-  const goal = demoState.goal;
-  const percent = Math.min(100, Math.round((b.goalCents / goal.targetCents) * 100));
-  const reached = b.goalCents >= goal.targetCents;
-  const missing = Math.max(0, goal.targetCents - b.goalCents);
-  const canSave = b.availableCents > 0 && !reached;
-  return `
-    <div class="goal-card${reached ? " is-reached" : ""}">
-      <div class="goal-top">
-        <span class="goal-emoji" aria-hidden="true">${goal.emoji}</span>
-        <div>
-          <p class="eyebrow">MINHA META</p>
-          <h3>${escapeHtml(goal.name)}</h3>
-        </div>
-        ${b.goalCents === 0 ? '<button class="link-button" type="button" data-goal-action="cancel">Trocar meta</button>' : ""}
-      </div>
-      <div class="goal-jar" role="progressbar" aria-label="Progresso da meta" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
-        <div class="goal-jar-fill" style="width:${percent}%"></div>
-        <span class="goal-jar-label">${percent}%</span>
-      </div>
-      <p class="goal-numbers"><strong>${money(b.goalCents)}</strong> de ${money(goal.targetCents)}${reached ? "" : ` · faltam ${money(missing)}`}</p>
-      <div class="goal-actions">
-        ${reached
-          ? '<button class="primary-button celebrate" type="button" data-goal-action="achieve">Conquistar meta 🎉</button>'
-          : `<button class="primary-button" type="button" data-goal-action="save"${canSave ? "" : " disabled"}>Guardar ${money(Math.min(b.availableCents, missing))} na meta</button>`}
-      </div>
-    </div>
-  `;
-}
-
-function renderRewards(notice = "Conclua módulos para liberar parte da sua mesada fictícia.", noticeType = "") {
-  const b = getAccountBalances();
-  document.querySelector("#reward-content").innerHTML = `
-    <div class="balance-grid" aria-label="Saldos da mesada fictícia">
-      <div class="balance-card is-locked">
-        <span class="balance-icon" aria-hidden="true">🔒</span>
-        <span class="balance-label">Bloqueado</span>
-        <strong class="balance-value">${money(b.lockedCents)}</strong>
-        <span class="balance-help">Libera ao concluir módulos</span>
-      </div>
-      <div class="balance-card is-available">
-        <span class="balance-icon" aria-hidden="true">💰</span>
-        <span class="balance-label">Disponível</span>
-        <strong class="balance-value">${money(b.availableCents)}</strong>
-        <span class="balance-help">Pode resgatar ou guardar</span>
-      </div>
-      <div class="balance-card is-goal">
-        <span class="balance-icon" aria-hidden="true">🐷</span>
-        <span class="balance-label">Na meta</span>
-        <strong class="balance-value">${money(b.goalCents)}</strong>
-        <span class="balance-help">Guardado para seu sonho</span>
-      </div>
-      <div class="balance-card is-redeemed">
-        <span class="balance-icon" aria-hidden="true">✅</span>
-        <span class="balance-label">Resgatado</span>
-        <strong class="balance-value">${money(b.redeemedCents)}</strong>
-        <span class="balance-help">Já foi para você</span>
-      </div>
-    </div>
-    <div class="reward-layout">
-      ${renderGoalCard(b)}
-      <div class="redeem-card">
-        <p class="eyebrow">RESGATE</p>
-        <h3>Usar agora</h3>
-        <p class="deposit-line"><span>Mesada fictícia depositada</span><strong>${money(b.grossDepositsCents)}</strong></p>
-        <p class="reward-notice${noticeType ? ` ${noticeType}` : ""}" role="status" aria-live="polite">${notice}</p>
-        <button class="redeem-button" type="button"${b.availableCents === 0 ? " disabled" : ""}>Resgatar ${money(b.availableCents)}</button>
-      </div>
-    </div>
-  `;
-}
-
-/* ---------- Aula + desafio ---------- */
-
-function openLesson(moduleId) {
-  const level = getActiveLevel();
-  const track = level.tracks.find((item) => item.modules.some((module) => module.id === moduleId));
-  const module = track.modules.find((item) => item.id === moduleId);
-  activeLesson = { module, track, step: "read", attempts: 0 };
-  renderLessonStep();
-  document.querySelector("#lesson-dialog").showModal();
-}
-
-function renderLessonStep(feedback = null) {
-  const { module, track, step } = activeLesson;
-  const completed = demoState.completedModuleIds.includes(module.id);
-  const body = document.querySelector("#lesson-body");
-
-  if (step === "read") {
-    body.innerHTML = `
-      <p class="eyebrow">${track.icon} ${track.name.toUpperCase()}</p>
-      <h2 id="lesson-title">${module.name}</h2>
-      <div class="lesson-steps" aria-hidden="true"><span class="is-on"></span><span></span></div>
-      ${module.lesson.map((paragraph) => `<p class="lesson-text">${paragraph}</p>`).join("")}
-      <div class="lesson-tip">
-        <svg class="tip-mascot" aria-hidden="true"><use href="#cofi"/></svg>
-        <p><strong>Dica do Cofi:</strong> ${module.tip}</p>
-      </div>
-      <div class="lesson-actions">
-        <button class="primary-button" type="button" data-lesson-action="quiz">${completed ? "Refazer desafio" : "Bora pro desafio →"}</button>
-      </div>
-    `;
-    return;
+  if ([...done].some((id) => !rewarded.has(id))) fail("Aula concluída sem recompensa.");
+  const opening = s.movements.filter((m) => m.id === OPENING_DEPOSIT_ID);
+  if (opening.length !== 1 || opening[0].amountCents !== INITIAL_DEPOSIT_CENTS) fail("Depósito inicial ausente.");
+  for (const r of s.requests) {
+    if (!r.id || !Number.isSafeInteger(r.amountCents) || r.amountCents <= 0 || !["pending", "approved", "declined"].includes(r.status)) fail("Pedido inválido.");
   }
 
-  const answered = feedback !== null;
-  body.innerHTML = `
-    <p class="eyebrow">⚡ DESAFIO</p>
-    <h2 id="lesson-title">${module.question}</h2>
-    <div class="lesson-steps" aria-hidden="true"><span class="is-on"></span><span class="is-on"></span></div>
-    <div class="quiz-options" role="group" aria-label="Alternativas">
-      ${module.options.map((option, index) => {
-        let state = "";
-        if (answered && index === module.answer && feedback.correct) state = " is-correct";
-        if (answered && index === feedback.choice && !feedback.correct) state = " is-wrong";
-        return `<button class="quiz-option${state}" type="button" data-answer="${index}"${answered && feedback.correct ? " disabled" : ""}><span class="quiz-letter">${"ABC"[index]}</span>${option}</button>`;
-      }).join("")}
-    </div>
-    ${answered ? `
-      <div class="quiz-feedback ${feedback.correct ? "is-correct" : "is-wrong"}" role="status">
-        ${feedback.correct ? `<strong>${feedback.message}</strong> ${module.explain}` : "<strong>Quase!</strong> Releia a dica e tente de novo. Você consegue!"}
-      </div>` : ""}
-    <div class="lesson-actions">
-      ${answered && feedback.correct
-        ? '<button class="primary-button" type="button" data-lesson-action="close">Continuar</button>'
-        : '<button class="link-button" type="button" data-lesson-action="read">← Voltar para a aula</button>'}
-    </div>
-  `;
+  const b = balances(s);
+  if (b.free < 0 || b.available < 0 || b.goal < 0 || b.spendable < 0) fail("Saldo negativo.");
+  if (b.locked + b.available + b.goal + b.redeemed !== b.net) fail("A conta não fecha.");
+  if (s.goal === null && b.goal !== 0) fail("Dinheiro guardado sem meta.");
 }
 
-function answerQuestion(choice) {
-  const { module } = activeLesson;
-  activeLesson.attempts += 1;
-  const correct = choice === module.answer;
-  if (!correct) {
-    renderLessonStep({ correct: false, choice });
-    return;
-  }
-  const alreadyDone = demoState.completedModuleIds.includes(module.id);
-  const perfect = activeLesson.attempts === 1;
-  let message = "Revisão feita!";
-  if (!alreadyDone) {
-    const result = completeModule(module.id, perfect);
-    message = result ? `+${money(module.rewardCents)} e +${XP_PER_MODULE + (perfect ? XP_PERFECT_BONUS : 0)} XP!` : "Não foi possível salvar.";
-  }
-  renderLessonStep({ correct: true, choice, message });
+function clone(s) {
+  return JSON.parse(JSON.stringify(s));
 }
 
-function completeModule(moduleId, perfect) {
-  const module = getActiveModules().find((item) => item.id === moduleId);
-  if (!module || demoState.completedModuleIds.includes(moduleId)) {
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      validate(parsed);
+      return parsed;
+    }
+  } catch { /* estado salvo inválido ou armazenamento indisponível */ }
+  const fresh = initialState();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh)); } catch { /* segue em memória */ }
+  return fresh;
+}
+
+// Aplica uma mudança: valida o estado novo, salva e redesenha. Se algo não fechar, nada muda.
+function commit(mutate) {
+  const next = clone(state);
+  mutate(next);
+  try {
+    validate(next);
+  } catch {
     return false;
   }
-  const badgesBefore = new Set(getBadges().filter((badge) => badge.unlocked).map((badge) => badge.id));
-  const rankBefore = getRankInfo(getXp()).current.name;
-
-  const nextState = cloneDemoState(demoState);
-  nextState.completedModuleIds.push(moduleId);
-  if (perfect) nextState.perfectModuleIds.push(moduleId);
-  nextState.movements.push({
-    id: `${REWARD_MOVEMENT_PREFIX}${moduleId}`,
-    type: "reward-earned",
-    moduleId,
-    amountCents: module.rewardCents,
-    date: new Date().toISOString(),
-    description: `Recompensa conquistada: ${module.name}`
-  });
-  if (!commitDemoState(nextState)) {
-    renderRewards("Não foi possível salvar o progresso neste navegador.", "is-warning");
-    return false;
-  }
-
-  renderLearning();
-  renderRewards(`${money(module.rewardCents)} liberados! Resgate agora ou guarde na sua meta.`, "is-success");
-  renderGuardianDashboard();
-  celebrate();
-
-  const rankAfter = getRankInfo(getXp()).current;
-  if (rankAfter.name !== rankBefore) toast(`${rankAfter.icon} Você subiu para ${rankAfter.name}!`);
-  getBadges().filter((badge) => badge.unlocked && !badgesBefore.has(badge.id)).forEach((badge) => toast(`${badge.icon} Conquista desbloqueada: ${badge.name}`));
+  state = next;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* segue em memória */ }
+  render();
   return true;
 }
 
-/* ---------- Cofrinho ---------- */
+const newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const now = () => new Date().toISOString();
+
+/* ------------------------------------------------------------------
+   Selos
+   ------------------------------------------------------------------ */
+
+const icons = {
+  check: '<path d="M6 12.5l4 4 8-9" />',
+  target: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/>',
+  flag: '<path d="M7 20V5m0 0h9l-2 3.5 2 3.5H7" />',
+  coin: '<circle cx="12" cy="12" r="7"/><path d="M12 8.5v7M9.8 10.2c0-1 1-1.7 2.2-1.7s2.2.6 2.2 1.5c0 2-4.4 1.2-4.4 3.3 0 .9 1 1.6 2.2 1.6s2.2-.7 2.2-1.7"/>',
+  trophy: '<path d="M8 5h8v4a4 4 0 01-8 0V5zM8 7H5.5a2.5 2.5 0 002.7 3M16 7h2.5a2.5 2.5 0 01-2.7 3M12 13v3m-3 3h6m-5-3h4"/>',
+  book: '<path d="M5 6.5c2.5-1 5-1 7 .5 2-1.5 4.5-1.5 7-.5v11c-2.5-1-5-1-7 .5-2-1.5-4.5-1.5-7-.5v-11zM12 7v11"/>'
+};
+const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
+
+function stamps(s = state) {
+  const done = new Set(s.completedModuleIds);
+  const trackDone = tracks.some((t) => modules.filter((m) => m.track === t.id).every((m) => done.has(m.id)));
+  return [
+    { id: "primeira", icon: "check", name: "Primeira aula", how: "Conclua uma aula", on: done.size >= 1 },
+    { id: "de-primeira", icon: "target", name: "De primeira", how: "Acerte 3 desafios na primeira tentativa", on: s.firstTryIds.length >= 3 },
+    { id: "trilha", icon: "flag", name: "Parte completa", how: "Termine as 3 aulas de uma parte da trilha", on: trackDone },
+    { id: "poupadora", icon: "coin", name: "Poupadora", how: "Guarde dinheiro na sua meta", on: s.movements.some((m) => m.type === "goal-save") },
+    { id: "meta", icon: "trophy", name: "Meta conquistada", how: "Complete uma meta", on: s.goalsAchieved >= 1 },
+    { id: "caderno", icon: "book", name: "Caderno completo", how: "Conclua as 6 aulas", on: done.size === modules.length }
+  ];
+}
+
+/* ------------------------------------------------------------------
+   Visão da criança
+   ------------------------------------------------------------------ */
+
+function nextModule() {
+  return modules.find((m) => !state.completedModuleIds.includes(m.id)) || null;
+}
+
+function renderIntro() {
+  const next = nextModule();
+  const doneCount = state.completedModuleIds.length;
+  $("#greeting").textContent = `Oi, ${student.name}.`;
+  const button = $("#continue-button");
+  if (next) {
+    const position = modules.indexOf(next) + 1;
+    $("#intro-line").textContent = doneCount === 0
+      ? `Sua trilha tem 6 aulas curtas. Cada uma que você terminar libera ${money(next.rewardCents)} da sua mesada.`
+      : `Você já fez ${doneCount} de 6 aulas. A próxima é a aula ${position}: ${next.name}`;
+    button.textContent = doneCount === 0 ? "Começar a primeira aula" : "Continuar trilha";
+    button.dataset.module = next.id;
+    button.hidden = false;
+  } else {
+    $("#intro-line").textContent = "Você terminou todas as aulas da trilha. Agora é cuidar bem do que conquistou.";
+    button.hidden = true;
+  }
+}
+
+function renderTrail() {
+  const next = nextModule();
+  $("#trail-count").textContent = `${state.completedModuleIds.length} de ${modules.length} aulas concluídas`;
+  $("#trail").innerHTML = modules.map((m, i) => {
+    const done = state.completedModuleIds.includes(m.id);
+    const isNext = next && next.id === m.id;
+    const firstOfTrack = i === 0 || modules[i - 1].track !== m.track;
+    const status = done ? "Concluída" : isNext ? "Próxima aula" : `Vale ${money(m.rewardCents)}`;
+    return `
+      <li class="stop${done ? " is-done" : ""}${isNext ? " is-next" : ""}${firstOfTrack ? " has-track" : ""}">
+        ${firstOfTrack ? `<span class="stop-track">${tracks.find((t) => t.id === m.track).name}</span>` : ""}
+        <button class="node" type="button" data-module="${m.id}" aria-label="Aula ${i + 1}: ${m.name}. ${status}">
+          ${done ? icon("check") : `<span>${i + 1}</span>`}
+        </button>
+        <span class="stop-name"><mark>${m.name}</mark></span>
+        <span class="stop-status">${status}</span>
+      </li>`;
+  }).join("");
+  requestAnimationFrame(drawTrailLine);
+}
+
+// Desenha o caminho que liga as aulas. A parte já percorrida fica em tinta cheia.
+function drawTrailLine() {
+  const wrap = $(".trail-wrap");
+  const svg = $("#trail-line");
+  const nodes = [...document.querySelectorAll("#trail .node")];
+  if (!wrap || nodes.length === 0) return;
+  const box = wrap.getBoundingClientRect();
+  svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+  const points = nodes.map((node) => {
+    const r = node.getBoundingClientRect();
+    return [r.left - box.left + r.width / 2, r.top - box.top + r.height / 2];
+  });
+  const vertical = points.length > 1 && Math.abs(points[1][0] - points[0][0]) < 4;
+  const path = (pts) => pts.map(([x, y], i) => {
+    if (i === 0) return `M${x} ${y}`;
+    const [px, py] = pts[i - 1];
+    if (vertical) return `L${x} ${y}`;
+    const mx = (px + x) / 2;
+    return `C${mx} ${py} ${mx} ${y} ${x} ${y}`;
+  }).join(" ");
+  let doneUntil = -1;
+  modules.forEach((m, i) => { if (state.completedModuleIds.includes(m.id) && i === doneUntil + 1) doneUntil = i; });
+  svg.innerHTML = `
+    <path d="${path(points)}" class="line-todo"/>
+    ${doneUntil >= 1 ? `<path d="${path(points.slice(0, doneUntil + 1))}" class="line-done"/>` : ""}
+  `;
+}
+
+function renderWallet() {
+  const b = balances();
+  const lastRequest = [...state.requests].reverse()[0];
+  let note = "";
+  if (b.pending > 0) note = `Você pediu ${money(b.pending)}. Agora é só esperar a família responder.`;
+  else if (lastRequest && lastRequest.status === "approved" && !lastRequest.seen) note = `A família aprovou seu pedido de ${money(lastRequest.amountCents)}.`;
+  else if (lastRequest && lastRequest.status === "declined" && !lastRequest.seen) note = `A família recusou o pedido de ${money(lastRequest.amountCents)}. Que tal conversar sobre isso?`;
+  else if (b.spendable === 0 && b.incomplete > 0) note = "Termine uma aula para liberar dinheiro.";
+
+  $("#wallet").innerHTML = `
+    <h3>Seu dinheiro</h3>
+    <p class="wallet-main"><span class="wallet-label">Pode usar</span><strong class="amount amount-xl">${money(b.spendable)}</strong></p>
+    <dl class="ledger">
+      <div><dt>Esperando resposta da família</dt><dd>${money(b.pending)}</dd></div>
+      <div><dt>Libera com as próximas aulas</dt><dd>${money(b.incomplete)}</dd></div>
+      <div><dt>Guardado na meta</dt><dd>${money(b.goal)}</dd></div>
+      <div><dt>Já recebido</dt><dd>${money(b.redeemed)}</dd></div>
+    </dl>
+    ${b.spendable > 0 ? `<button id="request-button" class="button button-primary" type="button">Pedir ${money(b.spendable)} para a família</button>` : ""}
+    ${note ? `<p class="hint">${esc(note)}</p>` : ""}
+  `;
+}
+
+function renderGoal() {
+  const b = balances();
+  const goal = state.goal;
+  if (!goal) {
+    $("#goal").innerHTML = `
+      <h3>Sua meta</h3>
+      <p class="goal-empty">${state.goalsAchieved > 0 ? `Você já conquistou ${state.goalsAchieved} ${state.goalsAchieved === 1 ? "meta" : "metas"}. Qual é a próxima?` : "Tem alguma coisa que você quer muito? Crie uma meta e guarde o dinheiro das aulas nela."}</p>
+      <form id="goal-form" class="goal-form">
+        <label>O que você quer<input name="name" type="text" maxlength="40" placeholder="Uma bicicleta, um livro…" required></label>
+        <label>Quanto custa
+          <span class="money-input"><span aria-hidden="true">R$</span><input name="target" type="number" min="1" max="5000" step="0.01" inputmode="decimal" placeholder="0,00" required></span>
+        </label>
+        <button class="button button-secondary" type="submit">Criar meta</button>
+      </form>`;
+    return;
+  }
+  const pct = Math.min(100, Math.round((b.goal / goal.targetCents) * 100));
+  const missing = Math.max(0, goal.targetCents - b.goal);
+  const canSave = Math.min(b.spendable, missing);
+  const reached = missing === 0;
+  $("#goal").innerHTML = `
+    <h3>Sua meta</h3>
+    <p class="goal-name">${esc(goal.name)}</p>
+    <div class="ruler" role="progressbar" aria-label="Quanto já foi guardado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+      <div class="ruler-fill" style="width:${pct}%"></div>
+    </div>
+    <p class="goal-numbers"><strong class="amount">${money(b.goal)}</strong> de ${money(goal.targetCents)}</p>
+    <p class="goal-missing">${reached ? "Você chegou lá." : `Faltam ${money(missing)}.`}${b.contributions > 0 ? ` A família ajudou com ${money(b.contributions)}.` : ""}</p>
+    <div class="goal-actions">
+      ${reached
+        ? '<button class="button button-primary" type="button" data-goal="achieve">Usar o dinheiro da meta</button>'
+        : canSave > 0 ? `<button class="button button-secondary" type="button" data-goal="save">Guardar ${money(canSave)}</button>` : '<p class="muted">Quando você liberar mais dinheiro nas aulas, dá para guardar aqui.</p>'}
+      ${b.goal === 0 ? '<button class="link" type="button" data-goal="remove">Trocar de meta</button>' : ""}
+    </div>`;
+}
+
+function renderStamps() {
+  const list = stamps();
+  $("#stamps-count").textContent = `${list.filter((s) => s.on).length} de ${list.length}`;
+  $("#stamps").innerHTML = list.map((s) => `
+    <li class="stamp${s.on ? " is-on" : ""}">
+      <span class="stamp-seal">${icon(s.icon)}</span>
+      <span class="stamp-name">${s.name}</span>
+      <span class="stamp-how">${s.on ? "Conquistado" : s.how}</span>
+    </li>`).join("");
+}
+
+/* ------------------------------------------------------------------
+   Aula e desafio
+   ------------------------------------------------------------------ */
+
+function openLesson(moduleId) {
+  const module = modules.find((m) => m.id === moduleId);
+  if (!module) return;
+  lesson = { module, step: "read", tries: 0, result: null };
+  renderLesson();
+  $("#lesson-dialog").showModal();
+}
+
+function renderLesson() {
+  const { module, step, result } = lesson;
+  const position = modules.indexOf(module) + 1;
+  const done = state.completedModuleIds.includes(module.id);
+  const steps = `<ol class="sheet-steps" aria-label="Etapas"><li class="is-on">Leitura</li><li class="${step === "quiz" ? "is-on" : ""}">Desafio</li></ol>`;
+
+  if (step === "read") {
+    $("#lesson-body").innerHTML = `
+      ${steps}
+      <p class="sheet-kicker">Aula ${position} de ${modules.length}</p>
+      <h2 id="lesson-title">${module.name}</h2>
+      ${module.lesson.map((p) => `<p class="lesson-p">${p}</p>`).join("")}
+      <aside class="lesson-tip"><strong>Para lembrar</strong><p>${module.tip}</p></aside>
+      <div class="sheet-actions"><button class="button button-primary" type="button" data-step="quiz">${done ? "Refazer o desafio" : "Ir para o desafio"}</button></div>`;
+    return;
+  }
+
+  $("#lesson-body").innerHTML = `
+    ${steps}
+    <p class="sheet-kicker">Desafio da aula ${position}</p>
+    <h2 id="lesson-title">${module.question}</h2>
+    <div class="options">
+      ${module.options.map((option, i) => {
+        let cls = "";
+        if (result && result.correct && i === module.answer) cls = " is-right";
+        if (result && !result.correct && i === result.choice) cls = " is-wrong";
+        return `<button class="option${cls}" type="button" data-choice="${i}"${result && result.correct ? " disabled" : ""}><span class="option-key">${"ABC"[i]}</span><span>${option}</span></button>`;
+      }).join("")}
+    </div>
+    ${result ? `<p class="answer-note ${result.correct ? "is-right" : "is-wrong"}" role="status">${result.correct ? `${result.headline} ${module.explain}` : "Ainda não. Volte para a leitura se quiser e tente de novo."}</p>` : ""}
+    <div class="sheet-actions">
+      ${result && result.correct
+        ? '<button class="button button-primary" type="button" data-step="close">Voltar para a trilha</button>'
+        : '<button class="link" type="button" data-step="read">Reler a aula</button>'}
+    </div>`;
+}
+
+function answer(choice) {
+  const { module } = lesson;
+  const correct = choice === module.answer;
+  const alreadyDone = state.completedModuleIds.includes(module.id);
+  lesson.tries += 1;
+
+  if (alreadyDone) {
+    lesson.result = { correct, choice, headline: "Isso mesmo." };
+    renderLesson();
+    return;
+  }
+
+  const stampsBefore = new Set(stamps().filter((s) => s.on).map((s) => s.id));
+  const ok = commit((s) => {
+    s.attempts[module.id] = (s.attempts[module.id] || 0) + 1;
+    if (correct) {
+      s.completedModuleIds.push(module.id);
+      if (s.attempts[module.id] === 1) s.firstTryIds.push(module.id);
+      s.movements.push({ id: `reward:${module.id}`, type: "reward-earned", moduleId: module.id, amountCents: module.rewardCents, date: now(), description: `Aula concluída: ${module.name}` });
+    }
+  });
+  lesson.result = { correct, choice, headline: ok ? `Certo! ${money(module.rewardCents)} liberados.` : "Certo!" };
+  renderLesson();
+  if (correct && ok) {
+    const fresh = stamps().find((s) => s.on && !stampsBefore.has(s.id));
+    if (fresh) toast(`Novo selo: ${fresh.name}`);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Ações da criança
+   ------------------------------------------------------------------ */
+
+function requestMoney() {
+  const b = balances();
+  if (b.spendable <= 0) return;
+  if (commit((s) => {
+    s.requests.forEach((r) => { r.seen = true; });
+    s.requests.push({ id: newId("request"), amountCents: b.spendable, status: "pending", date: now() });
+  })) toast(`Pedido de ${money(b.spendable)} enviado para a família.`);
+}
 
 function createGoal(form) {
   const data = new FormData(form);
-  const name = String(data.get("name") || "").trim();
+  const name = String(data.get("name") || "").trim().slice(0, 40);
   const targetCents = Math.round(Number(data.get("target")) * 100);
-  const emoji = String(data.get("emoji"));
-  if (!name || !Number.isSafeInteger(targetCents) || targetCents <= 0 || !goalEmojis.includes(emoji)) {
-    renderRewards("Preencha o nome e um valor válido para a meta.", "is-warning");
-    return;
-  }
-  const nextState = cloneDemoState(demoState);
-  nextState.goal = { name: name.slice(0, 40), targetCents, emoji };
-  if (commitDemoState(nextState)) {
-    renderRewards(`Meta criada: ${emoji} ${escapeHtml(name)}. Agora é guardar!`, "is-success");
-    setMascot("Meta criada! Cada real guardado te deixa mais perto. 💪");
-  }
+  if (!name || !Number.isSafeInteger(targetCents) || targetCents <= 0) return;
+  commit((s) => { s.goal = { name, targetCents, createdAt: now() }; });
 }
 
 function saveToGoal() {
-  const b = getAccountBalances();
-  const goal = demoState.goal;
-  if (!goal || b.availableCents <= 0) return;
-  const amountCents = Math.min(b.availableCents, goal.targetCents - b.goalCents);
-  if (amountCents <= 0) return;
-  const hadSaved = getBadges().find((badge) => badge.id === "poupador").unlocked;
-  const nextState = cloneDemoState(demoState);
-  nextState.movements.push({
-    id: makeMovementId("goal-save", nextState),
-    type: "goal-save",
-    amountCents,
-    date: new Date().toISOString(),
-    description: `Guardado na meta: ${goal.name}`
-  });
-  if (!commitDemoState(nextState)) {
-    renderRewards("Não foi possível salvar neste navegador.", "is-warning");
-    return;
+  const b = balances();
+  const amount = Math.min(b.spendable, state.goal.targetCents - b.goal);
+  if (amount <= 0) return;
+  const hadStamp = stamps().find((s) => s.id === "poupadora").on;
+  if (commit((s) => s.movements.push({ id: newId("goal-save"), type: "goal-save", amountCents: amount, date: now(), description: `Guardado na meta: ${s.goal.name}` }))) {
+    toast(hadStamp ? `${money(amount)} guardados na meta.` : "Novo selo: Poupadora");
   }
-  const reached = getAccountBalances().goalCents >= goal.targetCents;
-  renderRewards(reached ? "Meta completa! Clique em conquistar para comemorar. 🎉" : `${money(amountCents)} guardados na meta. Continue assim!`, "is-success");
-  renderBadges();
-  renderGuardianDashboard();
-  if (!hadSaved) toast("🐷 Conquista desbloqueada: Poupador");
-  if (reached) celebrate();
 }
 
 function achieveGoal() {
-  const b = getAccountBalances();
-  const goal = demoState.goal;
-  if (!goal || b.goalCents < goal.targetCents) return;
-  const nextState = cloneDemoState(demoState);
-  nextState.movements.push({
-    id: makeMovementId("redemption", nextState),
-    type: "redemption",
-    source: "goal",
-    amountCents: b.goalCents,
-    date: new Date().toISOString(),
-    description: `Meta conquistada: ${goal.name}`
-  });
-  nextState.goal = null;
-  nextState.goalsAchieved += 1;
-  if (!commitDemoState(nextState)) return;
-  renderRewards(`${goal.emoji} Você conquistou "${escapeHtml(goal.name)}"! ${money(b.goalCents)} resgatados na demonstração.`, "is-success");
-  renderBadges();
-  renderGuardianDashboard();
-  celebrate(true);
-  if (nextState.goalsAchieved === 1) toast("🌟 Conquista desbloqueada: Sonho realizado");
+  const b = balances();
+  const goal = state.goal;
+  if (!goal || b.goal < goal.targetCents) return;
+  if (commit((s) => {
+    s.movements.push({ id: newId("redemption"), type: "redemption", source: "goal", amountCents: b.goal, date: now(), description: `Meta conquistada: ${goal.name}` });
+    s.goal = null;
+    s.goalsAchieved += 1;
+  })) toast(`Meta conquistada: ${goal.name}`);
 }
 
-function cancelGoal() {
-  // A troca só é liberada com a meta vazia: o que já foi guardado continua comprometido com ela.
-  if (getAccountBalances().goalCents > 0) {
-    renderRewards("Você já guardou dinheiro nesta meta. Conclua-a antes de trocar.", "is-warning");
-    return;
-  }
-  const nextState = cloneDemoState(demoState);
-  nextState.goal = null;
-  if (commitDemoState(nextState)) renderRewards("Meta removida. Crie uma nova quando quiser!");
-}
+/* ------------------------------------------------------------------
+   Visão da família
+   ------------------------------------------------------------------ */
 
-function redeemAvailable() {
-  const b = getAccountBalances();
-  if (b.availableCents === 0) {
-    renderRewards("Não há valor disponível para resgate.", "is-warning");
-    return;
-  }
-  const nextState = cloneDemoState(demoState);
-  nextState.movements.push({
-    id: makeMovementId("redemption", nextState),
-    type: "redemption",
-    source: "available",
-    amountCents: b.availableCents,
-    date: new Date().toISOString(),
-    description: "Resgate demonstrativo do saldo disponível"
-  });
-  if (!commitDemoState(nextState)) {
-    renderRewards("Não foi possível salvar o resgate neste navegador.", "is-warning");
-    return;
-  }
-  renderRewards(`Resgate demonstrativo de ${money(b.availableCents)} concluído. Nenhum pagamento real foi realizado.`, "is-success");
-  renderGuardianDashboard();
-}
+function renderFamily() {
+  const b = balances();
+  const pending = state.requests.filter((r) => r.status === "pending");
 
-/* ---------- Responsáveis ---------- */
+  const badge = $("#family-badge");
+  badge.hidden = pending.length === 0;
+  badge.textContent = pending.length;
+  badge.setAttribute("aria-label", `${pending.length} pedido${pending.length === 1 ? "" : "s"} esperando resposta`);
 
-function renderGuardianDashboard() {
-  const b = getAccountBalances();
-  const metrics = [
-    { label: "Total depositado", value: money(b.grossDepositsCents) },
-    { label: "Saldo livre", value: money(b.freeCents) },
-    { label: "Recompensas conquistadas", value: money(b.earnedCents) },
-    { label: "Guardado em meta", value: money(b.goalCents) },
-    { label: "Total resgatado", value: money(b.redeemedCents) },
-    { label: "XP do aluno", value: `${getXp()} XP` }
+  const summary = [
+    ["Mesada depositada", b.deposits - b.withdrawals, "Total que você colocou, menos retiradas"],
+    ["Liberado pelas aulas", b.earned, `${state.completedModuleIds.length} de ${modules.length} aulas concluídas`],
+    ["Guardado na meta", b.goal, state.goal ? state.goal.name : "Sem meta no momento"],
+    ["Já recebido pela Sofia", b.redeemed, "Pedidos aprovados e metas usadas"],
+    ["Saldo livre", b.free, "Pode retirar quando quiser"]
   ];
-  document.querySelector("#guardian-metrics").innerHTML = metrics.map((metric) => `
-    <article class="guardian-metric">
-      <span class="guardian-metric-label">${metric.label}</span>
-      <strong class="guardian-metric-value">${metric.value}</strong>
-    </article>
-  `).join("");
-  renderGuardianProgress();
-  renderGuardianFinancialControls();
-  renderGuardianHistory();
-}
+  $("#family-summary").innerHTML = summary.map(([label, value, help]) => `
+    <div class="summary-item"><dt>${label}</dt><dd><span class="amount">${money(value)}</span><small>${esc(help)}</small></dd></div>`).join("");
 
-function renderGuardianProgress() {
-  const level = getActiveLevel();
-  const modules = getActiveModules();
-  const completedCount = demoState.completedModuleIds.length;
-  const progressPercent = Math.round((completedCount / modules.length) * 100);
-  const goal = demoState.goal;
+  // Pedidos
+  const decided = state.requests.filter((r) => r.status !== "pending").slice(-3).reverse();
+  $("#requests").innerHTML = `
+    <div class="block-head">
+      <h2 id="requests-title">Pedidos da Sofia</h2>
+      <p class="section-note">${pending.length ? "Esperando sua resposta." : "Nenhum pedido esperando resposta."}</p>
+    </div>
+    ${pending.map((r) => `
+      <div class="request">
+        <div class="request-copy">
+          <strong>${student.name} pediu ${money(r.amountCents)}</strong>
+          <span>Dinheiro liberado nas aulas, pedido em ${fullDate.format(new Date(r.date))}</span>
+        </div>
+        <div class="request-actions">
+          <button class="button button-ghost" type="button" data-request="${r.id}" data-decision="declined">Recusar</button>
+          <button class="button button-primary" type="button" data-request="${r.id}" data-decision="approved">Aprovar e entregar</button>
+        </div>
+      </div>`).join("")}
+    ${decided.length ? `<ul class="request-log">${decided.map((r) => `<li>${shortDate.format(new Date(r.date))}: pedido de ${money(r.amountCents)} ${r.status === "approved" ? "aprovado" : "recusado"}</li>`).join("")}</ul>` : ""}
+  `;
+  $("#requests").classList.toggle("has-pending", pending.length > 0);
 
-  const tracksMarkup = level.tracks.map((track) => {
-    const trackCompletedCount = track.modules.filter((module) => demoState.completedModuleIds.includes(module.id)).length;
-    const rows = track.modules.map((module) => {
-      const completed = demoState.completedModuleIds.includes(module.id);
-      const perfect = demoState.perfectModuleIds.includes(module.id);
-      return `
-        <div class="guardian-module-row${completed ? " is-complete" : ""}">
-          <div class="guardian-module-copy">
-            <strong>${module.name}</strong>
-            <span>${completed ? (perfect ? "Concluído · acertou de primeira" : "Concluído") : "Pendente"}</span>
-          </div>
-          <span class="guardian-module-reward">${money(module.rewardCents)} ${completed ? "conquistados" : "ao concluir"}</span>
-        </div>`;
-    }).join("");
+  // Aulas
+  const firstTry = state.firstTryIds.length;
+  $("#learning-note").textContent = state.completedModuleIds.length
+    ? `${firstTry} de ${state.completedModuleIds.length} desafios acertados na primeira tentativa.`
+    : "A Sofia ainda não começou a trilha.";
+  $("#lessons-body").innerHTML = modules.map((m, i) => {
+    const done = state.completedModuleIds.includes(m.id);
+    const tries = state.attempts[m.id] || 0;
+    const reward = state.movements.find((mv) => mv.type === "reward-earned" && mv.moduleId === m.id);
+    let status = '<span class="status status-todo">Não começou</span>';
+    if (done) status = `<span class="status status-done">Concluída em ${shortDate.format(new Date(reward.date))}</span>`;
+    else if (tries > 0) status = '<span class="status status-trying">Tentando</span>';
     return `
-      <section class="guardian-track" aria-labelledby="guardian-track-${track.id}">
-        <div class="guardian-track-heading">
-          <div><h3 id="guardian-track-${track.id}">${track.icon} ${track.name}</h3><p>${track.description}</p></div>
-          <span>${trackCompletedCount} de ${track.modules.length} módulos</span>
-        </div>
-        <div class="progress-track" role="progressbar" aria-label="Progresso: ${track.name}" aria-valuemin="0" aria-valuemax="${track.modules.length}" aria-valuenow="${trackCompletedCount}">
-          <div class="progress-fill" style="width: ${Math.round((trackCompletedCount / track.modules.length) * 100)}%"></div>
-        </div>
-        <div class="guardian-module-list">${rows}</div>
-      </section>`;
+      <tr>
+        <th scope="row"><span class="lesson-index">${i + 1}</span>${m.name}</th>
+        <td>${status}</td>
+        <td>${tries === 0 ? "–" : tries}${done && tries === 1 ? " <span class=\"muted\">(de primeira)</span>" : ""}</td>
+        <td class="num">${money(m.rewardCents)}</td>
+      </tr>`;
   }).join("");
 
-  document.querySelector("#guardian-learning-progress").innerHTML = `
-    <div class="guardian-progress-summary">
-      <div class="guardian-progress-copy">
-        <span>Progresso geral · ${level.name}</span>
-        <strong>${completedCount} de ${modules.length} módulos concluídos</strong>
-        <span>${goal ? `Meta atual: ${goal.emoji} ${escapeHtml(goal.name)} (${money(goal.targetCents)})` : "Sem meta de poupança ativa"} · Metas conquistadas: ${demoState.goalsAchieved}</span>
-      </div>
-      <span class="guardian-progress-percent">${progressPercent}%</span>
-      <div class="progress-track" role="progressbar" aria-label="Progresso geral do aluno" aria-valuemin="0" aria-valuemax="${modules.length}" aria-valuenow="${completedCount}">
-        <div class="progress-fill" style="width: ${progressPercent}%"></div>
-      </div>
-    </div>
-    <div class="guardian-track-list">${tracksMarkup}</div>
-  `;
-}
-
-function setGuardianFeedback(message, type = "") {
-  const feedback = document.querySelector("#guardian-operation-feedback");
-  feedback.textContent = message;
-  feedback.className = `reward-notice guardian-operation-feedback${type ? ` ${type}` : ""}`;
-}
-
-function renderGuardianFinancialControls() {
-  const freeCents = getAccountBalances().freeCents;
-  const input = document.querySelector("#withdrawal-amount");
-  const button = document.querySelector("#withdrawal-form .finance-submit");
-  input.max = (freeCents / 100).toFixed(2);
-  input.disabled = freeCents === 0;
-  button.disabled = freeCents === 0;
-  document.querySelector("#withdrawal-available").textContent = money(freeCents);
-}
-
-function renderGuardianHistory() {
-  const labels = { deposit: "Depósito", withdrawal: "Retirada", "reward-earned": "Recompensa conquistada", redemption: "Resgate", "goal-save": "Guardado na meta" };
-  const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-  const movements = [...demoState.movements].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  document.querySelector("#guardian-history").innerHTML = `
-    <div class="history-heading">
-      <h3>Histórico de movimentações</h3>
-      <span>${movements.length} ${movements.length === 1 ? "movimentação" : "movimentações"}</span>
-    </div>
-    <ol class="movement-list">
-      ${movements.map((movement) => {
-        const outgoing = movement.type === "withdrawal";
-        const prefix = movement.type === "deposit" || movement.type === "reward-earned" ? "+" : outgoing ? "-" : "";
-        return `
-          <li class="movement-row movement-${movement.type}">
-            <div class="movement-copy">
-              <span class="movement-type">${labels[movement.type]}</span>
-              <strong>${escapeHtml(movement.description)}</strong>
-              <time datetime="${movement.date}">${dateFormatter.format(new Date(movement.date))}</time>
-            </div>
-            <span class="movement-amount${outgoing ? " is-outgoing" : ""}">${prefix}${money(movement.amountCents)}</span>
-          </li>`;
-      }).join("")}
-    </ol>
-  `;
-}
-
-function applyGuardianOperation(type, amountCents) {
-  const isDeposit = type === "deposit";
-  if (!isDeposit && amountCents > getAccountBalances().freeCents) {
-    setGuardianFeedback("O valor excede o saldo livre disponível para retirada.", "is-warning");
-    return false;
+  // Meta
+  const goal = state.goal;
+  if (!goal) {
+    $("#family-goal").innerHTML = `<p class="muted">${state.goalsAchieved ? `A Sofia já conquistou ${state.goalsAchieved} ${state.goalsAchieved === 1 ? "meta" : "metas"} e ainda não criou a próxima.` : "A Sofia ainda não criou uma meta. Uma boa conversa: o que ela gostaria de conquistar?"}</p>`;
+  } else {
+    const pct = Math.min(100, Math.round((b.goal / goal.targetCents) * 100));
+    const missing = Math.max(0, goal.targetCents - b.goal);
+    $("#family-goal").innerHTML = `
+      <p class="goal-name">${esc(goal.name)}</p>
+      <div class="ruler" role="progressbar" aria-label="Progresso da meta" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="ruler-fill" style="width:${pct}%"></div></div>
+      <p class="goal-numbers"><strong class="amount">${money(b.goal)}</strong> de ${money(goal.targetCents)}${b.contributions ? `, sendo ${money(b.contributions)} da família` : ""}</p>
+      ${missing > 0 ? `
+        <form id="contribution-form" class="op-form op-inline">
+          <label for="contribution-amount">Ajudar na meta</label>
+          <div class="money-input"><span aria-hidden="true">R$</span><input id="contribution-amount" type="number" min="0.01" max="${(missing / 100).toFixed(2)}" step="0.01" inputmode="decimal" placeholder="até ${money(missing).replace("R$", "").trim()}" required></div>
+          <button class="button button-secondary" type="submit">Colocar na meta</button>
+        </form>` : '<p class="muted">Meta completa. A Sofia já pode usar o dinheiro.</p>'}`;
   }
-  const nextState = cloneDemoState(demoState);
-  nextState.movements.push({
-    id: makeMovementId(type, nextState),
-    type,
-    amountCents,
-    date: new Date().toISOString(),
-    description: isDeposit ? "Depósito demonstrativo do responsável" : "Retirada demonstrativa do saldo livre"
-  });
-  if (!commitDemoState(nextState)) {
-    setGuardianFeedback(`Não foi possível salvar ${isDeposit ? "o depósito" : "a retirada"} neste navegador.`, "is-warning");
-    return false;
-  }
-  setGuardianFeedback(`${isDeposit ? "Depósito" : "Retirada"} de ${money(amountCents)} confirmad${isDeposit ? "o" : "a"} na demonstração.`, "is-success");
-  renderRewards(isDeposit ? "Depósito demonstrativo registrado no saldo livre." : "Retirada demonstrativa registrada; recompensas do aluno preservadas.", "is-success");
-  renderGuardianDashboard();
-  return true;
+
+  // Operações
+  $("#free-balance").textContent = money(b.free);
+  $("#withdrawal-amount").max = (b.free / 100).toFixed(2);
+  $("#withdrawal-form button").disabled = b.free === 0;
+  $("#withdrawal-amount").disabled = b.free === 0;
+
+  renderHistory();
 }
 
-function openOperationConfirmation(type, amountCents) {
-  const isDeposit = type === "deposit";
-  pendingFinancialOperation = { type, amountCents };
-  document.querySelector("#operation-dialog-title").textContent = isDeposit ? "Confirmar depósito" : "Confirmar retirada";
-  document.querySelector("#operation-dialog-message").textContent = isDeposit
-    ? `Adicionar ${money(amountCents)} ao saldo livre da demonstração?`
-    : `Retirar ${money(amountCents)} do saldo livre da demonstração?`;
-  document.querySelector("#operation-confirm").textContent = isDeposit ? "Confirmar depósito" : "Confirmar retirada";
-  document.querySelector("#operation-dialog").showModal();
-}
-
-function handleGuardianForm(type) {
-  return (event) => {
-    event.preventDefault();
-    const amount = document.querySelector(`#${type}-amount`).valueAsNumber;
-    const amountCents = Math.round(amount * 100);
-    if (!Number.isFinite(amount) || amountCents <= 0) {
-      setGuardianFeedback(`Informe um valor positivo para ${type === "deposit" ? "o depósito" : "a retirada"}.`, "is-warning");
-      return;
-    }
-    if (type === "withdrawal" && amountCents > getAccountBalances().freeCents) {
-      setGuardianFeedback("O valor excede o saldo livre disponível para retirada.", "is-warning");
-      return;
-    }
-    openOperationConfirmation(type, amountCents);
+function renderHistory() {
+  const kinds = {
+    deposit: { label: "Depósito", dir: "in" },
+    withdrawal: { label: "Retirada", dir: "out" },
+    "reward-earned": { label: "Liberado por aula", dir: "move" },
+    redemption: { label: "Entregue à Sofia", dir: "out" },
+    "goal-save": { label: "Sofia guardou na meta", dir: "move" },
+    "goal-contribution": { label: "Ajuda na meta", dir: "in" }
   };
+  const rows = [...state.movements]
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
+    .filter((m) => historyFilter === "all" || kinds[m.type].dir === historyFilter);
+  $("#history").innerHTML = rows.length ? rows.map((m) => {
+    const k = kinds[m.type];
+    const sign = k.dir === "in" ? "+" : k.dir === "out" ? "−" : "";
+    return `
+      <li class="entry entry-${k.dir}">
+        <time datetime="${m.date}">${fullDate.format(new Date(m.date))}</time>
+        <span class="entry-copy"><strong>${k.label}</strong><span>${esc(m.description)}</span></span>
+        <span class="entry-amount">${sign}${money(m.amountCents)}</span>
+      </li>`;
+  }).join("") : '<li class="muted">Nada por aqui com esse filtro.</li>';
 }
 
-/* ---------- Visual: confete, toasts, mascote ---------- */
-
-function toast(message) {
-  const region = document.querySelector("#toast-region");
-  const item = document.createElement("div");
-  item.className = "toast";
-  item.textContent = message;
-  region.appendChild(item);
-  while (region.children.length > 3) region.firstElementChild.remove();
-  setTimeout(() => item.classList.add("is-leaving"), 3200);
-  setTimeout(() => item.remove(), 3700);
-}
-
-function setMascot(text) {
-  document.querySelector("#mascot-bubble").textContent = text;
-}
-
-function celebrate(big = false) {
-  if (reducedMotion) return;
-  const canvas = document.querySelector("#confetti");
-  const ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  const colors = ["#FFC83D", "#FF7A59", "#6FD3FF", "#C8F169", "#8B6CFF"];
-  const pieces = Array.from({ length: big ? 180 : 90 }, () => ({
-    x: canvas.width / 2 + (Math.random() - 0.5) * 200,
-    y: canvas.height * 0.35,
-    vx: (Math.random() - 0.5) * 14,
-    vy: -Math.random() * 14 - 4,
-    size: Math.random() * 8 + 5,
-    rot: Math.random() * Math.PI,
-    vr: (Math.random() - 0.5) * 0.3,
-    color: colors[Math.floor(Math.random() * colors.length)]
-  }));
-  let frame = 0;
-  (function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    pieces.forEach((p) => {
-      p.vy += 0.35; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vx *= 0.99;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
-      ctx.restore();
-    });
-    frame += 1;
-    if (frame < 140) requestAnimationFrame(draw);
-    else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  })();
-}
-
-/* ---------- Navegação e perfis ---------- */
-
-function toggleView() {
-  const showGuardian = document.querySelector("#guardian-view").hidden;
-  document.querySelector("#student-view").hidden = showGuardian;
-  document.querySelector("#guardian-view").hidden = !showGuardian;
-  document.querySelector("#view-switch").textContent = showGuardian ? "Voltar para visão do aluno" : "Visão dos responsáveis";
-  document.querySelector("#view-switch").setAttribute("aria-expanded", String(showGuardian));
-  document.querySelector(".context-label").textContent = showGuardian ? "VISÃO DO RESPONSÁVEL" : "ESPAÇO DO ALUNO";
-  if (showGuardian) renderGuardianDashboard();
-  window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
-}
-
-function selectStudent(studentId) {
-  student = demoStudents.find((item) => item.id === studentId) || demoStudents[0];
-  storage.trySet(STUDENT_KEY, student.id);
-  document.querySelector("#student-select").value = student.id;
-  demoState = loadDemoState();
-  setMascot(student.theme === "kids" ? mascotTips[0] : "E aí! Bora dominar suas finanças? Cada desafio vale XP. ⚡");
-  renderLearning();
-  renderRewards();
-  renderGuardianDashboard();
-}
-
-function resetDemo() {
-  if (!commitDemoState(createInitialDemoState())) {
-    renderRewards("Não foi possível reiniciar a demonstração neste navegador.", "is-warning");
-    return;
-  }
-  renderLearning();
-  renderRewards("Demonstração reiniciada. Todos os valores voltaram ao início.", "is-success");
-  renderGuardianDashboard();
-}
-
-/* ---------- Eventos ---------- */
-
-document.querySelector("#student-select").innerHTML = demoStudents
-  .map((item) => `<option value="${item.id}">${item.name} · ${learningLevels.find((level) => level.id === item.levelId).grade}</option>`)
-  .join("");
-document.querySelector("#student-select").addEventListener("change", (event) => selectStudent(event.target.value));
-
-document.querySelector("#learning-content").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-open-lesson]");
-  if (button) openLesson(button.dataset.openLesson);
-});
-
-document.querySelector("#lesson-body").addEventListener("click", (event) => {
-  const answer = event.target.closest("[data-answer]");
-  if (answer && !answer.disabled) {
-    answerQuestion(Number(answer.dataset.answer));
-    return;
-  }
-  const action = event.target.closest("[data-lesson-action]")?.dataset.lessonAction;
-  if (action === "quiz") { activeLesson.step = "quiz"; activeLesson.attempts = 0; renderLessonStep(); }
-  if (action === "read") { activeLesson.step = "read"; renderLessonStep(); }
-  if (action === "close") document.querySelector("#lesson-dialog").close();
-});
-document.querySelector("#lesson-close").addEventListener("click", () => document.querySelector("#lesson-dialog").close());
-document.querySelector("#lesson-dialog").addEventListener("click", (event) => {
-  if (event.target.id === "lesson-dialog") event.target.close();
-});
-
-document.querySelector("#reward-content").addEventListener("click", (event) => {
-  const redeem = event.target.closest(".redeem-button");
-  if (redeem && !redeem.disabled) { redeemAvailable(); return; }
-  const action = event.target.closest("[data-goal-action]");
-  if (!action || action.disabled) return;
-  if (action.dataset.goalAction === "save") saveToGoal();
-  if (action.dataset.goalAction === "achieve") achieveGoal();
-  if (action.dataset.goalAction === "cancel") cancelGoal();
-});
-document.querySelector("#reward-content").addEventListener("submit", (event) => {
-  if (event.target.id === "goal-form") { event.preventDefault(); createGoal(event.target); }
-});
-
-document.querySelector("#reset-demo").addEventListener("click", resetDemo);
-document.querySelector("#view-switch").addEventListener("click", toggleView);
-document.querySelector("#deposit-form").addEventListener("submit", handleGuardianForm("deposit"));
-document.querySelector("#withdrawal-form").addEventListener("submit", handleGuardianForm("withdrawal"));
-
-document.querySelector("#operation-dialog-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const operation = pendingFinancialOperation;
-  pendingFinancialOperation = null;
-  document.querySelector("#operation-dialog").close();
-  if (operation && applyGuardianOperation(operation.type, operation.amountCents)) {
-    document.querySelector(`#${operation.type}-form`).reset();
-  }
-});
-document.querySelector("#operation-cancel").addEventListener("click", () => {
-  pendingFinancialOperation = null;
-  document.querySelector("#operation-dialog").close();
-  setGuardianFeedback("Operação cancelada. Nenhum saldo foi alterado.");
-});
-document.querySelector("#operation-dialog").addEventListener("cancel", () => { pendingFinancialOperation = null; });
-
-// Destaca a seção visível no menu lateral.
-const navLinks = [...document.querySelectorAll(".nav-link")];
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (!entry.isIntersecting) return;
-    navLinks.forEach((link) => {
-      const active = link.getAttribute("href") === `#${entry.target.id}`;
-      link.classList.toggle("is-active", active);
-      if (active) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
-    });
+function decideRequest(id, decision) {
+  const request = state.requests.find((r) => r.id === id && r.status === "pending");
+  if (!request) return;
+  const ok = commit((s) => {
+    const r = s.requests.find((item) => item.id === id);
+    r.status = decision;
+    r.seen = false;
+    r.decidedAt = now();
+    if (decision === "approved") {
+      s.movements.push({ id: newId("redemption"), type: "redemption", source: "available", amountCents: r.amountCents, date: now(), description: "Pedido da Sofia aprovado" });
+    }
   });
-}, { rootMargin: "-40% 0px -55% 0px" });
-["aprendizagem", "conquistas", "recompensas"].forEach((id) => observer.observe(document.getElementById(id)));
+  if (ok) toast(decision === "approved" ? `Pedido aprovado. Entregue ${money(request.amountCents)} à Sofia.` : "Pedido recusado.");
+}
 
-// Dica do mascote muda a cada 12 segundos.
-let tipIndex = 0;
-setInterval(() => {
-  if (document.hidden || student.theme !== "kids") return;
-  tipIndex = (tipIndex + 1) % mascotTips.length;
-  setMascot(mascotTips[tipIndex]);
-}, 12000);
+function askConfirm({ title, message, action, onConfirm }) {
+  pendingConfirm = onConfirm;
+  $("#confirm-title").textContent = title;
+  $("#confirm-message").textContent = message;
+  $("#confirm-ok").textContent = action;
+  $("#confirm-dialog").returnValue = "";
+  $("#confirm-dialog").showModal();
+}
 
-selectStudent(storage.get(STUDENT_KEY) || demoStudents[0].id);
+function feedback(message, kind = "") {
+  const el = $("#ops-feedback");
+  el.textContent = message;
+  el.className = `feedback${kind ? ` is-${kind}` : ""}`;
+}
+
+/* ------------------------------------------------------------------
+   Geral
+   ------------------------------------------------------------------ */
+
+function render() {
+  renderIntro();
+  renderTrail();
+  renderWallet();
+  renderGoal();
+  renderStamps();
+  renderFamily();
+}
+
+let toastTimer;
+function toast(message) {
+  const el = $("#toast");
+  el.textContent = message;
+  el.hidden = false;
+  el.classList.remove("is-leaving");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.add("is-leaving");
+    setTimeout(() => { el.hidden = true; }, 300);
+  }, 3200);
+}
+
+function showView(view) {
+  const family = view === "family";
+  $("#student-view").hidden = family;
+  $("#family-view").hidden = !family;
+  $("#tab-student").setAttribute("aria-selected", String(!family));
+  $("#tab-family").setAttribute("aria-selected", String(family));
+  document.body.classList.toggle("is-family", family);
+  window.scrollTo({ top: 0, behavior: "auto" });
+  if (!family) requestAnimationFrame(drawTrailLine);
+}
+
+/* ------------------------------------------------------------------
+   Eventos
+   ------------------------------------------------------------------ */
+
+$("#tab-student").addEventListener("click", () => showView("student"));
+$("#tab-family").addEventListener("click", () => showView("family"));
+$(".view-toggle").addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  const target = document.activeElement.id === "tab-student" ? "#tab-family" : "#tab-student";
+  $(target).focus();
+  showView(target === "#tab-family" ? "family" : "student");
+});
+
+$("#continue-button").addEventListener("click", (event) => openLesson(event.currentTarget.dataset.module));
+$("#trail").addEventListener("click", (event) => {
+  const node = event.target.closest("[data-module]");
+  if (node) openLesson(node.dataset.module);
+});
+
+$("#lesson-body").addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-choice]");
+  if (choice && !choice.disabled) { answer(Number(choice.dataset.choice)); return; }
+  const step = event.target.closest("[data-step]")?.dataset.step;
+  if (step === "quiz") { lesson.step = "quiz"; lesson.result = null; renderLesson(); }
+  if (step === "read") { lesson.step = "read"; lesson.result = null; renderLesson(); }
+  if (step === "close") $("#lesson-dialog").close();
+});
+$("#lesson-close").addEventListener("click", () => $("#lesson-dialog").close());
+$("#lesson-dialog").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+
+$("#wallet").addEventListener("click", (event) => { if (event.target.closest("#request-button")) requestMoney(); });
+$("#goal").addEventListener("submit", (event) => { if (event.target.id === "goal-form") { event.preventDefault(); createGoal(event.target); } });
+$("#goal").addEventListener("click", (event) => {
+  const action = event.target.closest("[data-goal]");
+  if (!action || action.disabled) return;
+  if (action.dataset.goal === "save") saveToGoal();
+  if (action.dataset.goal === "achieve") achieveGoal();
+  if (action.dataset.goal === "remove") commit((s) => { s.goal = null; });
+});
+
+$("#requests").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-request]");
+  if (!button) return;
+  const request = state.requests.find((r) => r.id === button.dataset.request);
+  if (button.dataset.decision === "approved") {
+    askConfirm({
+      title: `Aprovar ${money(request.amountCents)}?`,
+      message: "O valor sai do saldo da Sofia no app. Combine com ela como vai entregar o dinheiro.",
+      action: "Aprovar",
+      onConfirm: () => decideRequest(request.id, "approved")
+    });
+  } else {
+    decideRequest(request.id, "declined");
+  }
+});
+
+$("#family-goal").addEventListener("submit", (event) => {
+  if (event.target.id !== "contribution-form") return;
+  event.preventDefault();
+  const cents = Math.round($("#contribution-amount").valueAsNumber * 100);
+  const missing = state.goal.targetCents - balances().goal;
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > missing) return;
+  askConfirm({
+    title: `Colocar ${money(cents)} na meta?`,
+    message: `O valor vai direto para a meta "${state.goal.name}".`,
+    action: "Colocar na meta",
+    onConfirm: () => {
+      if (commit((s) => s.movements.push({ id: newId("goal-contribution"), type: "goal-contribution", amountCents: cents, date: now(), description: `Para a meta: ${s.goal.name}` }))) {
+        toast(`${money(cents)} colocados na meta da Sofia.`);
+      }
+    }
+  });
+});
+
+$("#deposit-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const cents = Math.round($("#deposit-amount").valueAsNumber * 100);
+  if (!Number.isSafeInteger(cents) || cents <= 0) { feedback("Digite um valor maior que zero.", "warn"); return; }
+  askConfirm({
+    title: `Depositar ${money(cents)}?`,
+    message: "O valor entra como saldo livre da mesada.",
+    action: "Depositar",
+    onConfirm: () => {
+      if (commit((s) => s.movements.push({ id: newId("deposit"), type: "deposit", amountCents: cents, date: now(), description: "Depósito extra" }))) {
+        feedback(`Depósito de ${money(cents)} feito.`, "ok");
+        event.target.reset();
+      }
+    }
+  });
+});
+
+$("#withdrawal-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const cents = Math.round($("#withdrawal-amount").valueAsNumber * 100);
+  const free = balances().free;
+  if (!Number.isSafeInteger(cents) || cents <= 0) { feedback("Digite um valor maior que zero.", "warn"); return; }
+  if (cents > free) { feedback(`O saldo livre é ${money(free)}. O dinheiro das aulas fica reservado para a Sofia.`, "warn"); return; }
+  askConfirm({
+    title: `Retirar ${money(cents)}?`,
+    message: "O valor sai do saldo livre. O que a Sofia já ganhou nas aulas não é afetado.",
+    action: "Retirar",
+    onConfirm: () => {
+      if (commit((s) => s.movements.push({ id: newId("withdrawal"), type: "withdrawal", amountCents: cents, date: now(), description: "Retirada do saldo livre" }))) {
+        feedback(`Retirada de ${money(cents)} feita.`, "ok");
+        event.target.reset();
+      }
+    }
+  });
+});
+
+$("#confirm-dialog").addEventListener("close", () => {
+  const run = pendingConfirm;
+  pendingConfirm = null;
+  if ($("#confirm-dialog").returnValue === "ok" && run) run();
+});
+
+document.querySelector(".filters").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-filter]");
+  if (!button) return;
+  historyFilter = button.dataset.filter;
+  document.querySelectorAll(".filter").forEach((b) => {
+    const on = b === button;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+  renderHistory();
+});
+
+$("#reset-demo").addEventListener("click", () => {
+  state = initialState();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* segue em memória */ }
+  render();
+  toast("Demonstração recomeçada.");
+});
+
+window.addEventListener("resize", () => requestAnimationFrame(drawTrailLine));
+document.fonts?.ready.then(() => requestAnimationFrame(drawTrailLine));
+
+state = load();
+render();
