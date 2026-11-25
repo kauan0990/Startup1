@@ -182,7 +182,16 @@ function nextModule() {
 function renderIntro() {
   const next = nextModule();
   const doneCount = state.completedModuleIds.length;
-  $("#greeting").textContent = `Oi, ${student.name}.`;
+  $("#greeting").textContent = `Oi, ${student.name}!`;
+  const b = balances();
+  const left = modules.length - doneCount;
+  let says;
+  if (doneCount === 0) says = "Oi! Eu sou o Pingo. De pingo em pingo, a gente enche o cofrinho. Bora começar?";
+  else if (!next) says = "Você completou a trilha inteira! Tô muito orgulhoso de você.";
+  else if (b.pending > 0) says = "Seu pedido foi para a família. Enquanto isso, que tal mais uma aula?";
+  else if (left === 1) says = "Falta só uma aula para completar a trilha!";
+  else says = `Faltam ${left} aulas. A próxima vale ${money(next.rewardCents)}!`;
+  $("#pingo-says").textContent = says;
   const button = $("#continue-button");
   if (next) {
     const position = modules.indexOf(next) + 1;
@@ -207,8 +216,8 @@ function renderTrail() {
     const firstOfTrack = i === 0 || modules[i - 1].track !== m.track;
     const status = done ? "Concluída" : isNext ? "Próxima aula" : `Vale ${money(m.rewardCents)}`;
     return `
-      <li class="stop${done ? " is-done" : ""}${isNext ? " is-next" : ""}${firstOfTrack ? " has-track" : ""}">
-        ${firstOfTrack ? `<span class="stop-track">${tracks.find((t) => t.id === m.track).name}</span>` : ""}
+      <li style="--c: var(--c${i % 4})" class="stop${done ? " is-done" : ""}${isNext ? " is-next" : ""}${firstOfTrack ? " has-track" : ""}">
+        ${firstOfTrack ? `<span class="stop-track tape-${tracks.findIndex((t) => t.id === m.track)}">${tracks.find((t) => t.id === m.track).name}</span>` : ""}
         <button class="node" type="button" data-module="${m.id}" aria-label="Aula ${i + 1}: ${m.name}. ${status}">
           ${done ? icon("check") : `<span>${i + 1}</span>`}
         </button>
@@ -309,11 +318,11 @@ function renderGoal() {
 function renderStamps() {
   const list = stamps();
   $("#stamps-count").textContent = `${list.filter((s) => s.on).length} de ${list.length}`;
-  $("#stamps").innerHTML = list.map((s) => `
-    <li class="stamp${s.on ? " is-on" : ""}">
-      <span class="stamp-seal">${icon(s.icon)}</span>
+  $("#stamps").innerHTML = list.map((s, i) => `
+    <li class="sticker${s.on ? " is-on" : ""}" style="--c: var(--c${i % 4}); --tilt: ${[-4, 3, -2, 5, -5, 2][i]}deg">
+      <span class="sticker-face">${s.on ? icon(s.icon) : `<span class="sticker-number">${i + 1}</span>`}</span>
       <span class="stamp-name">${s.name}</span>
-      <span class="stamp-how">${s.on ? "Conquistado" : s.how}</span>
+      <span class="stamp-how">${s.on ? "Colada no álbum" : s.how}</span>
     </li>`).join("");
 }
 
@@ -341,7 +350,7 @@ function renderLesson() {
       <p class="sheet-kicker">Aula ${position} de ${modules.length}</p>
       <h2 id="lesson-title">${module.name}</h2>
       ${module.lesson.map((p) => `<p class="lesson-p">${p}</p>`).join("")}
-      <aside class="lesson-tip"><strong>Para lembrar</strong><p>${module.tip}</p></aside>
+      <aside class="lesson-tip"><svg class="tip-pingo" aria-hidden="true"><use href="#pingo"/></svg><div><strong>Dica do Pingo</strong><p>${module.tip}</p></div></aside>
       <div class="sheet-actions"><button class="button button-primary" type="button" data-step="quiz">${done ? "Refazer o desafio" : "Ir para o desafio"}</button></div>`;
     return;
   }
@@ -358,7 +367,13 @@ function renderLesson() {
         return `<button class="option${cls}" type="button" data-choice="${i}"${result && result.correct ? " disabled" : ""}><span class="option-key">${"ABC"[i]}</span><span>${option}</span></button>`;
       }).join("")}
     </div>
-    ${result ? `<p class="answer-note ${result.correct ? "is-right" : "is-wrong"}" role="status">${result.correct ? `${result.headline} ${module.explain}` : "Ainda não. Volte para a leitura se quiser e tente de novo."}</p>` : ""}
+    ${result && result.correct ? `
+      <div class="celebrate" role="status">
+        <div class="burst" aria-hidden="true">${Array.from({ length: 14 }, (_, k) => `<i style="--a:${k * 25.7}deg; --d:${60 + (k % 3) * 18}px; --c: var(--c${k % 4})"></i>`).join("")}</div>
+        <svg class="celebrate-pingo" aria-hidden="true"><use href="#pingo-feliz"/></svg>
+        <p><strong>${result.headline}</strong> ${module.explain}</p>
+      </div>` : ""}
+    ${result && !result.correct ? '<p class="answer-note is-wrong" role="status">Quase! Releia a aula se quiser e tente de novo. O Pingo acredita em você.</p>' : ""}
     <div class="sheet-actions">
       ${result && result.correct
         ? '<button class="button button-primary" type="button" data-step="close">Voltar para a trilha</button>'
@@ -387,11 +402,11 @@ function answer(choice) {
       s.movements.push({ id: `reward:${module.id}`, type: "reward-earned", moduleId: module.id, amountCents: module.rewardCents, date: now(), description: `Aula concluída: ${module.name}` });
     }
   });
-  lesson.result = { correct, choice, headline: ok ? `Certo! ${money(module.rewardCents)} liberados.` : "Certo!" };
+  lesson.result = { correct, choice, headline: ok ? `Acertou! +${money(module.rewardCents)} no seu cofrinho.` : "Acertou!" };
   renderLesson();
   if (correct && ok) {
     const fresh = stamps().find((s) => s.on && !stampsBefore.has(s.id));
-    if (fresh) toast(`Novo selo: ${fresh.name}`);
+    if (fresh) toast(`Figurinha nova: ${fresh.name}`);
   }
 }
 
@@ -422,7 +437,7 @@ function saveToGoal() {
   if (amount <= 0) return;
   const hadStamp = stamps().find((s) => s.id === "poupadora").on;
   if (commit((s) => s.movements.push({ id: newId("goal-save"), type: "goal-save", amountCents: amount, date: now(), description: `Guardado na meta: ${s.goal.name}` }))) {
-    toast(hadStamp ? `${money(amount)} guardados na meta.` : "Novo selo: Poupadora");
+    toast(hadStamp ? `${money(amount)} guardados na meta.` : "Figurinha nova: Poupadora");
   }
 }
 

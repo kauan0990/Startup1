@@ -10,11 +10,43 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Gabarito:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4">
-    <script src="content.js?v=4" defer></script>
-    <script src="app.js?v=4" defer></script>
+    <link rel="stylesheet" href="styles.css?v=5">
+    <script src="content.js?v=5" defer></script>
+    <script src="app.js?v=5" defer></script>
   </head>
   <body>
+    <!-- Pingo: o mascote, um pingo de tinta azul. "De pingo em pingo, o cofrinho enche." -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <symbol id="pingo" viewBox="0 0 120 140">
+          <ellipse cx="60" cy="132" rx="30" ry="5" fill="#0E1B3D" opacity=".12"/>
+          <path d="M42 120c-4 6-10 8-14 6M78 120c4 6 10 8 14 6" stroke="#1B3FA0" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M60 6C60 6 102 58 102 86a42 42 0 0 1-84 0C18 58 60 6 60 6Z" fill="#2F6BFF" stroke="#1B3FA0" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M36 70c2-12 9-24 16-34" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".45" fill="none"/>
+          <path d="M20 92c-10-2-14-10-12-16M100 92c10-2 14-10 12-16" stroke="#1B3FA0" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <ellipse cx="46" cy="84" rx="8.5" ry="10" fill="#fff"/>
+          <ellipse cx="74" cy="84" rx="8.5" ry="10" fill="#fff"/>
+          <circle cx="48" cy="86" r="5" fill="#0E1B3D"/>
+          <circle cx="76" cy="86" r="5" fill="#0E1B3D"/>
+          <circle cx="50" cy="83.5" r="1.8" fill="#fff"/>
+          <circle cx="78" cy="83.5" r="1.8" fill="#fff"/>
+          <ellipse cx="34" cy="100" rx="6" ry="3.5" fill="#FF8FA3" opacity=".8"/>
+          <ellipse cx="86" cy="100" rx="6" ry="3.5" fill="#FF8FA3" opacity=".8"/>
+          <path d="M52 102q8 8 16 0" stroke="#0E1B3D" stroke-width="4" stroke-linecap="round" fill="none"/>
+        </symbol>
+        <symbol id="pingo-feliz" viewBox="0 0 120 140">
+          <ellipse cx="60" cy="132" rx="26" ry="4" fill="#0E1B3D" opacity=".1"/>
+          <path d="M60 6C60 6 102 58 102 86a42 42 0 0 1-84 0C18 58 60 6 60 6Z" fill="#2F6BFF" stroke="#1B3FA0" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M36 70c2-12 9-24 16-34" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".45" fill="none"/>
+          <path d="M22 80c-10-6-12-18-6-26M98 80c10-6 12-18 6-26" stroke="#1B3FA0" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M38 86q8-9 16 0M66 86q8-9 16 0" stroke="#0E1B3D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+          <ellipse cx="34" cy="100" rx="6.5" ry="4" fill="#FF8FA3"/>
+          <ellipse cx="86" cy="100" rx="6.5" ry="4" fill="#FF8FA3"/>
+          <path d="M48 98q12 16 24 0Z" fill="#0E1B3D"/>
+          <path d="M53 104q7 5 14 0" stroke="#FF8FA3" stroke-width="3" stroke-linecap="round" fill="none"/>
+        </symbol>
+      </defs>
+    </svg>
     <header class="appbar">
       <a class="brand" href="#" aria-label="First Finance, início">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
@@ -38,10 +70,14 @@
     <main id="student-view" class="page" role="tabpanel" aria-labelledby="tab-student">
       <section class="intro">
         <div class="intro-copy">
-          <h1 id="greeting">Oi, Sofia.</h1>
+          <h1 id="greeting">Oi, Sofia!</h1>
           <p id="intro-line" class="intro-line"></p>
+          <button id="continue-button" class="button button-primary button-large" type="button"></button>
         </div>
-        <button id="continue-button" class="button button-primary button-large" type="button"></button>
+        <figure class="intro-mascot">
+          <figcaption id="pingo-says" class="pingo-note"></figcaption>
+          <svg class="pingo" role="img" aria-label="Pingo, o mascote"><use href="#pingo"/></svg>
+        </figure>
       </section>
 
       <section class="trail-section" aria-labelledby="trail-title">
@@ -63,7 +99,7 @@
 
       <section class="stamps-section" aria-labelledby="stamps-title">
         <div class="section-head">
-          <h2 id="stamps-title">Selos</h2>
+          <h2 id="stamps-title">Álbum de figurinhas</h2>
           <p id="stamps-count" class="section-note"></p>
         </div>
         <ul id="stamps" class="stamps"></ul>
