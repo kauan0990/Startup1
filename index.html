@@ -10,9 +10,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Gabarito:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=5">
-    <script src="content.js?v=5" defer></script>
-    <script src="app.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=6">
+    <script src="content.js?v=6" defer></script>
+    <script src="app.js?v=6" defer></script>
   </head>
   <body>
     <!-- Pingo: o mascote, um pingo de tinta azul. "De pingo em pingo, o cofrinho enche." -->
@@ -47,24 +47,49 @@
         </symbol>
       </defs>
     </svg>
-    <header class="appbar">
+    <div class="shell">
+    <aside class="sidebar" aria-label="Navegação">
       <a class="brand" href="#" aria-label="First Finance, início">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="currentColor"/>
+          <rect width="32" height="32" rx="8" fill="#1B3FA0"/>
           <path d="M8 23h5v-5h5v-5h6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
           <circle cx="24" cy="9" r="2.6" fill="#FFE14D"/>
         </svg>
         <span class="brand-name">first finance</span>
       </a>
+
       <div class="view-toggle" role="tablist" aria-label="Escolher visão">
         <button id="tab-student" role="tab" aria-selected="true" aria-controls="student-view" type="button">
           <span class="avatar" aria-hidden="true">S</span><span class="tab-label">Sofia</span>
         </button>
         <button id="tab-family" role="tab" aria-selected="false" aria-controls="family-view" type="button">
-          <span class="tab-label">Família</span><span id="family-badge" class="count-badge" hidden></span>
+          <span class="tab-label">Responsáveis</span><span id="family-badge" class="count-badge" hidden></span>
         </button>
       </div>
-    </header>
+
+      <nav id="nav-student" class="side-nav" aria-label="Seções da Sofia">
+        <a class="nav-link is-active" href="#trilha" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c3 0 3-4 7-4s4-6 7-6"/><circle cx="5" cy="19" r="1.6"/><circle cx="19" cy="9" r="1.6"/><path d="M17 3l2 2 2-2"/></svg><span>Trilha</span></a>
+        <a class="nav-link" href="#dinheiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.7 10c0-1 1-1.6 2.3-1.6s2.3.6 2.3 1.5c0 2.2-4.6 1.2-4.6 3.4 0 .9 1 1.6 2.3 1.6s2.3-.7 2.3-1.7"/></svg><span>Meu dinheiro</span></a>
+        <a class="nav-link" href="#figurinhas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.2l1.2 2.5 2.7.4-2 1.9.5 2.7L12 14.4l-2.4 1.3.5-2.7-2-1.9 2.7-.4z"/></svg><span>Figurinhas</span></a>
+      </nav>
+
+      <nav id="nav-family" class="side-nav" aria-label="Seções dos responsáveis" hidden>
+        <a class="nav-link is-active" href="#resumo" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>Resumo</span></a>
+        <a class="nav-link" href="#requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l2.5-7h11L20 13v5a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg><span>Pedidos</span><span id="nav-requests-badge" class="count-badge" hidden></span></a>
+        <a class="nav-link" href="#aulas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6.5c2.5-1 5-1 7 .5 2-1.5 4.5-1.5 7-.5v11c-2.5-1-5-1-7 .5-2-1.5-4.5-1.5-7-.5z"/><path d="M12 7v11"/></svg><span>Aulas</span></a>
+        <a class="nav-link" href="#meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg><span>Meta</span></a>
+        <a class="nav-link" href="#mesada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M3.5 10h17M15 14h2.5"/></svg><span>Mesada</span></a>
+        <a class="nav-link" href="#extrato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h11M8 12h11M8 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg><span>Extrato</span></a>
+      </nav>
+
+      <div id="side-progress" class="side-progress">
+        <svg class="side-pingo" aria-hidden="true"><use href="#pingo"/></svg>
+        <div>
+          <strong id="side-progress-text">0 de 6 aulas</strong>
+          <div class="side-bar" aria-hidden="true"><span id="side-progress-fill"></span></div>
+        </div>
+      </div>
+    </aside>
 
     <!-- ===================== VISÃO DA CRIANÇA ===================== -->
     <main id="student-view" class="page" role="tabpanel" aria-labelledby="tab-student">
@@ -80,7 +105,7 @@
         </figure>
       </section>
 
-      <section class="trail-section" aria-labelledby="trail-title">
+      <section id="trilha" class="trail-section" aria-labelledby="trail-title">
         <div class="section-head">
           <h2 id="trail-title">Sua trilha</h2>
           <p id="trail-count" class="section-note"></p>
@@ -91,13 +116,13 @@
         </div>
       </section>
 
-      <section class="money" aria-labelledby="money-title">
+      <section id="dinheiro" class="money" aria-labelledby="money-title">
         <h2 id="money-title" class="visually-hidden">Seu dinheiro</h2>
         <div id="wallet" class="wallet"></div>
         <div id="goal" class="goal"></div>
       </section>
 
-      <section class="stamps-section" aria-labelledby="stamps-title">
+      <section id="figurinhas" class="stamps-section" aria-labelledby="stamps-title">
         <div class="section-head">
           <h2 id="stamps-title">Álbum de figurinhas</h2>
           <p id="stamps-count" class="section-note"></p>
@@ -111,8 +136,9 @@
       </footer>
     </main>
 
-    <!-- ===================== VISÃO DA FAMÍLIA ===================== -->
+    <!-- ===================== VISÃO DOS RESPONSÁVEIS ===================== -->
     <main id="family-view" class="page page-family" role="tabpanel" aria-labelledby="tab-family" hidden>
+      <div id="resumo">
       <section class="family-head">
         <div>
           <h1>Acompanhamento da Sofia</h1>
@@ -121,11 +147,12 @@
       </section>
 
       <dl id="family-summary" class="summary"></dl>
+      </div>
 
       <section id="requests" class="block block-requests" aria-labelledby="requests-title"></section>
 
       <div class="family-grid">
-        <section class="block" aria-labelledby="learning-title">
+        <section id="aulas" class="block" aria-labelledby="learning-title">
           <div class="block-head">
             <h2 id="learning-title">Aulas</h2>
             <p id="learning-note" class="section-note"></p>
@@ -140,7 +167,7 @@
           </div>
         </section>
 
-        <section class="block" aria-labelledby="family-goal-title">
+        <section id="meta" class="block" aria-labelledby="family-goal-title">
           <div class="block-head">
             <h2 id="family-goal-title">Meta da Sofia</h2>
           </div>
@@ -148,7 +175,7 @@
         </section>
       </div>
 
-      <section class="block" aria-labelledby="money-ops-title">
+      <section id="mesada" class="block" aria-labelledby="money-ops-title">
         <div class="block-head">
           <h2 id="money-ops-title">Mesada</h2>
           <p class="section-note">Depósitos extras ficam como saldo livre e podem ser retirados quando quiser. O valor das aulas fica reservado até a Sofia concluir.</p>
@@ -175,7 +202,7 @@
         <p id="ops-feedback" class="feedback" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="block" aria-labelledby="history-title">
+      <section id="extrato" class="block" aria-labelledby="history-title">
         <div class="block-head">
           <h2 id="history-title">Extrato</h2>
           <div class="filters" role="group" aria-label="Filtrar extrato">
@@ -187,6 +214,7 @@
         <ol id="history" class="history"></ol>
       </section>
     </main>
+    </div>
 
     <dialog id="lesson-dialog" class="sheet" aria-labelledby="lesson-title">
       <button id="lesson-close" class="sheet-close" type="button" aria-label="Fechar aula">

@@ -192,6 +192,8 @@ function renderIntro() {
   else if (left === 1) says = "Falta só uma aula para completar a trilha!";
   else says = `Faltam ${left} aulas. A próxima vale ${money(next.rewardCents)}!`;
   $("#pingo-says").textContent = says;
+  $("#side-progress-text").textContent = `${doneCount} de ${modules.length} aulas`;
+  $("#side-progress-fill").style.width = `${Math.round((doneCount / modules.length) * 100)}%`;
   const button = $("#continue-button");
   if (next) {
     const position = modules.indexOf(next) + 1;
@@ -464,6 +466,9 @@ function renderFamily() {
   badge.hidden = pending.length === 0;
   badge.textContent = pending.length;
   badge.setAttribute("aria-label", `${pending.length} pedido${pending.length === 1 ? "" : "s"} esperando resposta`);
+  const navBadge = $("#nav-requests-badge");
+  navBadge.hidden = pending.length === 0;
+  navBadge.textContent = pending.length;
 
   const summary = [
     ["Mesada depositada", b.deposits - b.withdrawals, "Total que você colocou, menos retiradas"],
@@ -633,6 +638,14 @@ function showView(view) {
   $("#tab-student").setAttribute("aria-selected", String(!family));
   $("#tab-family").setAttribute("aria-selected", String(family));
   document.body.classList.toggle("is-family", family);
+  $("#nav-student").hidden = family;
+  $("#nav-family").hidden = !family;
+  $("#side-progress").hidden = family;
+  const nav = family ? "#nav-family" : "#nav-student";
+  document.querySelectorAll(`${nav} .nav-link`).forEach((link, i) => {
+    link.classList.toggle("is-active", i === 0);
+    if (i === 0) link.setAttribute("aria-current", "true"); else link.removeAttribute("aria-current");
+  });
   window.scrollTo({ top: 0, behavior: "auto" });
   if (!family) requestAnimationFrame(drawTrailLine);
 }
@@ -773,6 +786,20 @@ $("#reset-demo").addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => requestAnimationFrame(drawTrailLine));
+
+// Menu lateral: destaca a seção que está na tela.
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (!entry.isIntersecting) return;
+    const nav = entry.target.closest("#family-view") ? "#nav-family" : "#nav-student";
+    document.querySelectorAll(`${nav} .nav-link`).forEach((link) => {
+      const on = link.getAttribute("href") === `#${entry.target.id}`;
+      link.classList.toggle("is-active", on);
+      if (on) link.setAttribute("aria-current", "true"); else link.removeAttribute("aria-current");
+    });
+  });
+}, { rootMargin: "-20% 0px -75% 0px" });
+["trilha", "dinheiro", "figurinhas", "resumo", "requests", "aulas", "meta", "mesada", "extrato"].forEach((id) => sectionObserver.observe(document.getElementById(id)));
 document.fonts?.ready.then(() => requestAnimationFrame(drawTrailLine));
 
 state = load();
